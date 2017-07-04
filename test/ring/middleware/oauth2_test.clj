@@ -1,7 +1,62 @@
 (ns ring.middleware.oauth2-test
-  (:require [clojure.test :refer :all]
-            [ring.middleware.oauth2 :refer :all]))
+  (:require [clj-http.fake :as fake]
+            [clojure.string :as str]
+            [clojure.test :refer :all]
+            [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
+            [ring.mock.request :as mock]
+            [ring.util.codec :as codec]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+(def test-profile
+  {:authorize-uri    "https://example.com/oauth2/authorize"
+   :access-token-uri "https://example.com/oauth2/access-token"
+   :redirect-uri     "/oauth2/test/callback"
+   :launch-uri       "/oauth2/test"
+   :landing-uri      "/"
+   :scopes           [:user :project]
+   :client-id        "abcdef"
+   :client-secret    "01234567890abcdef"})
+
+(defn token-handler [{:keys [oauth2/access-tokens]}]
+  {:status 200, :headers {}, :body access-tokens})
+
+(def test-handler
+  (wrap-oauth2 token-handler {:test test-profile}))
+
+(deftest test-launch-uri
+  (let [response  (test-handler (mock/request :get "/oauth2/test"))
+        location  (get-in response [:headers "Location"])
+        [_ query] (str/split location #"\?" 2)
+        params    (codec/form-decode query)]
+    (is (= 302 (:status response)))
+    (is (.startsWith ^String location "https://example.com/oauth2/authorize?"))
+    (is (= {"response_type" "code"
+            "client_id"     "abcdef"
+            "redirect_uri"  "http://localhost/oauth2/test/callback"
+            "scope"         "user project"}
+           (dissoc params "state")))
+    (is (re-matches #"[A-Za-z0-9_-]{12}" (params "state")))
+    (is (= {::oauth2/state (params "state")}
+           (:session response)))))
+
+(def token-response
+  {:status  200
+   :headers {"Content-Type" "application/json"}
+   :body    "{\"access_token\":\"defdef\",\"expires_in\":3600}"})
+
+(deftest test-redirect-uri
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token" (constantly token-response)}
+    (let [request  (-> (mock/request :get "/oauth2/test/callback")
+                       (assoc :session {::oauth2/state "xyzxyz"})
+                       (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
+          response (test-handler request)]
+      (is (= 302 (:status response)))
+      (is (= "/" (get-in response [:headers "Location"])))
+      (is (= {::oauth2/access-tokens {:test {:token "defdef", :expires 3600}}}
+             (:session response))))))
+
+(deftest test-access-tokens-key
+  (let [tokens {:test {:token "defdef", :expires 3600}}]
+    (is (= {:status 200, :headers {}, :body tokens}
+           (test-handler (-> (mock/request :get "/")
+                             (assoc :session {::oauth2/access-tokens tokens})))))))
