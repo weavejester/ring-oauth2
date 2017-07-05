@@ -1,5 +1,6 @@
 (ns ring.middleware.oauth2
   (:require [clj-http.client :as http]
+            [clj-time.core :as time]
             [clojure.string :as str]
             [crypto.random :as random]
             [ring.util.codec :as codec]
@@ -37,7 +38,8 @@
      (get-in request [:query-params "state"])))
 
 (defn- format-access-token [{{:keys [access_token expires_in]} :body}]
-  {:token access_token, :expires expires_in})
+  {:token   access_token
+   :expires (-> expires_in time/seconds time/from-now)})
 
 (defn- get-access-token [{:keys [access-token-uri client-id]} request]
   (format-access-token

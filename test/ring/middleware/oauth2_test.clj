@@ -1,5 +1,6 @@
 (ns ring.middleware.oauth2-test
   (:require [clj-http.fake :as fake]
+            [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.test :refer :all]
             [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
@@ -49,10 +50,11 @@
     (let [request  (-> (mock/request :get "/oauth2/test/callback")
                        (assoc :session {::oauth2/state "xyzxyz"})
                        (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
-          response (test-handler request)]
+          response (test-handler request)
+          expires  (-> 3600 time/seconds time/from-now)]
       (is (= 302 (:status response)))
       (is (= "/" (get-in response [:headers "Location"])))
-      (is (= {::oauth2/access-tokens {:test {:token "defdef", :expires 3600}}}
+      (is (= {::oauth2/access-tokens {:test {:token "defdef", :expires expires}}}
              (:session response))))))
 
 (deftest test-access-tokens-key
