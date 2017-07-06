@@ -63,8 +63,7 @@
       (let [request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxya"}))
-            response (test-handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            response (test-handler request)]
         (is (= {:status 400, :headers {}, :body "State mismatch"}
                response))))
 
@@ -75,8 +74,7 @@
             request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxya"}))
-            response (handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            response (handler request)]
         (is (= {:status 400, :headers {}, :body "Error!"}
                response))))))
 
