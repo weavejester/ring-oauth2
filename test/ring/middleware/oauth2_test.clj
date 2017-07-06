@@ -44,6 +44,11 @@
    :headers {"Content-Type" "application/json"}
    :body    "{\"access_token\":\"defdef\",\"expires_in\":3600}"})
 
+(defn approx-eq [a b]
+  (time/within?
+   (time/interval (time/minus a (time/seconds 1)) (time/plus a (time/seconds 1)))
+   b))
+
 (deftest test-redirect-uri
   (fake/with-fake-routes
     {"https://example.com/oauth2/access-token" (constantly token-response)}
@@ -56,8 +61,10 @@
             expires  (-> 3600 time/seconds time/from-now)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
-        (is (= {::oauth2/access-tokens {:test {:token "defdef", :expires expires}}}
-               (:session response)))))
+        (is (map? (-> response :session ::oauth2/access-tokens)))
+        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
+        (is (approx-eq (-> 3600 time/seconds time/from-now)
+                       (-> response :session ::oauth2/access-tokens :test :expires)))))
 
     (testing "invalid state"
       (let [request  (-> (mock/request :get "/oauth2/test/callback")
