@@ -66,6 +66,18 @@
             response (test-handler request)
             expires  (-> 3600 time/seconds time/from-now)]
         (is (= {:status 400, :headers {}, :body "State mismatch"}
+               response))))
+
+    (testing "custom error"
+      (let [error    {:status 400, :headers {}, :body "Error!"}
+            profile  (assoc test-profile :state-mismatch-handler (constantly error))
+            handler  (wrap-oauth2 token-handler {:test profile})
+            request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"code" "abcabc", "state" "xyzxya"}))
+            response (handler request)
+            expires  (-> 3600 time/seconds time/from-now)]
+        (is (= {:status 400, :headers {}, :body "Error!"}
                response))))))
 
 (deftest test-access-tokens-key

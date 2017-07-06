@@ -51,18 +51,19 @@
                              :redirect_uri (req/request-url request)
                              :client_id    client-id}})))
 
-(def ^:private state-mismatch-response
+(defn state-mismatch-handler [_]
   {:status 400, :headers {}, :body "State mismatch"})
 
 (defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
-  (fn [{:keys [session] :or {session {}} :as request}]
-    (if (state-matches? request)
-      (let [access-token (get-access-token profile request)]
-        (-> (resp/redirect landing-uri)
-            (assoc :session (-> session
-                                (assoc-in [::access-tokens id] access-token)
-                                (dissoc ::state)))))
-      state-mismatch-response)))
+  (let [error-handler (:state-mismatch-handler profile state-mismatch-handler)]
+    (fn [{:keys [session] :or {session {}} :as request}]
+      (if (state-matches? request)
+        (let [access-token (get-access-token profile request)]
+          (-> (resp/redirect landing-uri)
+              (assoc :session (-> session
+                                  (assoc-in [::access-tokens id] access-token)
+                                  (dissoc ::state)))))
+        (error-handler request)))))
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
