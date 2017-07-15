@@ -7,7 +7,7 @@
                  [cheshire "5.7.1"]
                  [clj-http "3.6.1"]
                  [clj-time "0.13.0"]
-                 [ring/ring-core "1.6.1"]]
+                 [ring/ring-core "1.6.2"]]
   :profiles
   {:dev {:dependencies [[clj-http-fake "1.0.3"]
                         [ring/ring-mock "0.3.1"]]}})
