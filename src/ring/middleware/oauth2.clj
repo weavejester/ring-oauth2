@@ -37,9 +37,9 @@
   (= (get-in request [:session ::state])
      (get-in request [:query-params "state"])))
 
-(defn- format-access-token [{{:keys [access_token expires_in]} :body}]
-  {:token   access_token
-   :expires (-> expires_in time/seconds time/from-now)})
+(defn- format-access-token [{{:keys [access_token expires_in]} :body :as r}]
+  (-> {:token access_token}
+      (cond-> expires_in (assoc :expires (-> expires_in time/seconds time/from-now)))))
 
 (defn- get-access-token [{:keys [access-token-uri client-id]} request]
   (format-access-token
