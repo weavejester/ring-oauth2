@@ -1,5 +1,7 @@
 # Ring-OAuth2
 
+[![Build Status](https://travis-ci.org/weavejester/ring-oauth2.svg?branch=master)](https://travis-ci.org/weavejester/ring-oauth2)
+
 [Ring][] middleware that acts as a [OAuth 2.0][] client. This is used
 for authenticating and integrating with third party website, like
 Twitter, Facebook and GitHub.
