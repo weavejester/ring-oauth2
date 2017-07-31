@@ -87,6 +87,14 @@ The landing URI is where the middleware redirects the user when the
 authentication process is complete. This could just be back to the
 index page, or it could be to the user's account page.
 
+## Workflow diagram
+
+The following image is a workflow diagram that describes the OAuth2
+authorization process for Ring-OAuth2. It should give you an overview
+of how all the different URIs interact.
+
+![OAuth2 Workflow](https://github.com/weavejester/ring-oauth2/raw/master/docs/workflow.png)
+
 ## License
 
 Copyright © 2017 James Reeves
