@@ -89,12 +89,6 @@ The landing URI is where the middleware redirects the user when the
 authentication process is complete. This could just be back to the
 index page, or it could be to the user's account page.
 
-Please note, you should enable cookies to be sent with cross-site requests,
-in order to make the callback request handling work correctly, eg:
-```clojure
-(wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
-```
-
 ## Workflow diagram
 
 The following image is a workflow diagram that describes the OAuth2
