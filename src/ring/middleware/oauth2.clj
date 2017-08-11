@@ -41,14 +41,14 @@
   (-> {:token access_token}
       (cond-> expires_in (assoc :expires (-> expires_in time/seconds time/from-now)))))
 
-(defn- get-access-token [{:keys [access-token-uri client-id client-secret]} request]
+(defn- get-access-token [{:keys [access-token-uri client-id client-secret] :as profile} request]
   (format-access-token
    (http/post access-token-uri
               {:accept :json
                :as     :json
                :form-params {:grant_type    "authorization_code"
                              :code          (get-in request [:query-params "code"])
-                             :redirect_uri  (req/request-url request)
+                             :redirect_uri  (redirect-uri profile request)
                              :client_id     client-id
                              :client_secret client-secret}})))
 
