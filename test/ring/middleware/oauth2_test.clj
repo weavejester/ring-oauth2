@@ -39,6 +39,15 @@
     (is (= {::oauth2/state (params "state")}
            (:session response)))))
 
+(deftest test-location-uri-with-query
+  (let [profile  (assoc test-profile 
+                        :authorize-uri 
+                        "https://example.com/oauth2/authorize?business_partner_id=XXXX")
+        handler   (wrap-oauth2 token-handler {:test profile})
+        response  (handler (mock/request :get "/oauth2/test"))
+        location  (get-in response [:headers "Location"])]
+    (is (.startsWith ^String location "https://example.com/oauth2/authorize?business_partner_id=XXXX&"))))
+
 (def token-response
   {:status  200
    :headers {"Content-Type" "application/json"}

@@ -17,7 +17,8 @@
   (str/join " " (map name (:scopes profile))))
 
 (defn- authorize-uri [profile request state]
-  (str (:authorize-uri profile) "?"
+  (str (:authorize-uri profile) 
+       (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
        (codec/form-encode {:response_type "code"
                            :client_id     (:client-id profile)
                            :redirect_uri  (redirect-uri profile request)
