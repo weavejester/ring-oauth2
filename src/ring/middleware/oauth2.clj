@@ -41,16 +41,18 @@
   (-> {:token access_token}
       (cond-> expires_in (assoc :expires (-> expires_in time/seconds time/from-now)))))
 
-(defn- get-access-token [{:keys [access-token-uri client-id client-secret]} request]
+(defn- get-access-token [{:keys [access-token-uri client-id client-secret creds-in-header?]
+                          :or {creds-in-header? false} :as profile} request]
   (format-access-token
    (http/post access-token-uri
-              {:accept :json
-               :as     :json
-               :form-params {:grant_type    "authorization_code"
-                             :code          (get-in request [:query-params "code"])
-                             :redirect_uri  (req/request-url request)
-                             :client_id     client-id
-                             :client_secret client-secret}})))
+              (cond-> {:accept :json
+                       :as     :json
+                       :form-params {:grant_type    "authorization_code"
+                                     :code          (get-in request [:query-params "code"])
+                                     :redirect_uri  (req/request-url request)}}
+                 (true? creds-in-header?) (assoc :basic-auth [client-id client-secret])
+                 (false? creds-in-header?) (assoc-in [:form-params :client_id] client-id)
+                 (false? creds-in-header?) (assoc-in [:form-params :client_secret] client-secret)))))
 
 (defn state-mismatch-handler [_]
   {:status 400, :headers {}, :body "State mismatch"})
