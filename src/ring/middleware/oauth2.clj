@@ -49,7 +49,7 @@
                        :as     :json
                        :form-params {:grant_type    "authorization_code"
                                      :code          (get-in request [:query-params "code"])
-                                     :redirect_uri  (req/request-url request)}}
+                                     :redirect_uri  (redirect-uri profile request)}}
                  (true? creds-in-header?) (assoc :basic-auth [client-id client-secret])
                  (false? creds-in-header?) (assoc-in [:form-params :client_id] client-id)
                  (false? creds-in-header?) (assoc-in [:form-params :client_secret] client-secret)))))
