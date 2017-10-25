@@ -128,3 +128,31 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
             response (handler request)]))))
+
+
+(def openid-response
+  {:status  200
+   :headers {"Content-Type" "application/json"}
+   :body    "{\"access_token\":\"defdef\",\"expires_in\":3600,
+              \"refresh_token\":\"ghighi\",\"id_token\":\"abc.def.ghi\"}"})
+
+(deftest test-openid-response
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token" (constantly openid-response)}
+
+    (testing "valid state"
+      (let [request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
+            response (test-handler request)
+            expires  (-> 3600 time/seconds time/from-now)]
+        (is (= 302 (:status response)))
+        (is (= "/" (get-in response [:headers "Location"])))
+        (is (map? (-> response :session ::oauth2/access-tokens)))
+        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
+        (is (= "ghighi" (-> response :session ::oauth2/access-tokens
+                                              :test :refresh-token)))
+        (is (= "abc.def.ghi" (-> response :session ::oauth2/access-tokens
+                                                   :test :id-token)))
+        (is (approx-eq (-> 3600 time/seconds time/from-now)
+                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
