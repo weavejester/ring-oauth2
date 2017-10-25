@@ -95,14 +95,13 @@ This is an optional parameter, which defaults to false.
 If set to true, it includes the client-id and secret as a header
 `Authorization: Basic base64(id:secret)` as recommended by [the specification][].
 
-
-[the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
-
 Please note, you should enable cookies to be sent with cross-site requests,
 in order to make the callback request handling work correctly, eg:
 ```clojure
 (wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
 ```
+
+[the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
 ## Workflow diagram
 
