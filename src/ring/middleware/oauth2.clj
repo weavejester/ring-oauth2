@@ -39,18 +39,31 @@
 
 (defn- format-access-token [{{:keys [access_token expires_in]} :body :as r}]
   (-> {:token access_token}
-      (cond-> expires_in (assoc :expires (-> expires_in time/seconds time/from-now)))))
+      (cond-> expires_in (assoc :expires (-> expires_in time/seconds
+                                                        time/from-now)))))
 
-(defn- get-access-token [{:keys [access-token-uri client-id client-secret]} request]
+(defn- request-params [profile request]
+  {:grant_type    "authorization_code"
+   :code          (get-in request [:query-params "code"])
+   :redirect_uri  (redirect-uri profile request)})
+
+(defn- add-header-credentials [opts id secret]
+  (assoc opts :basic-auth [id secret]))
+
+(defn- add-form-credentials [opts id secret]
+  (assoc opts :form-params (-> (:form-params opts)
+                               (merge {:client-id     id
+                                       :client-secret secret}))))
+
+(defn- get-access-token
+  [{:keys [access-token-uri client-id client-secret basic-auth?]
+    :or {basic-auth? false} :as profile} request]
   (format-access-token
    (http/post access-token-uri
-              {:accept :json
-               :as     :json
-               :form-params {:grant_type    "authorization_code"
-                             :code          (get-in request [:query-params "code"])
-                             :redirect_uri  (req/request-url request)
-                             :client_id     client-id
-                             :client_secret client-secret}})))
+     (cond-> {:accept :json, :as  :json,
+              :form-params (request-params profile request)}
+       basic-auth? (add-header-credentials client-id client-secret)
+       (not basic-auth?) (add-form-credentials client-id client-secret)))))
 
 (defn state-mismatch-handler [_]
   {:status 400, :headers {}, :body "State mismatch"})
