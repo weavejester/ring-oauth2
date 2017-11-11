@@ -13,7 +13,7 @@ Twitter, Facebook and GitHub.
 
 To install, add the following to your project `:dependencies`:
 
-    [ring-oauth2 "0.1.0"]
+    [ring-oauth2 "0.1.2"]
 
 ## Usage
 
@@ -89,11 +89,19 @@ The landing URI is where the middleware redirects the user when the
 authentication process is complete. This could just be back to the
 index page, or it could be to the user's account page.
 
+* `:basic-auth?`
+
+This is an optional parameter, which defaults to false.
+If set to true, it includes the client-id and secret as a header
+`Authorization: Basic base64(id:secret)` as recommended by [the specification][].
+
 Please note, you should enable cookies to be sent with cross-site requests,
 in order to make the callback request handling work correctly, eg:
 ```clojure
 (wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
 ```
+
+[the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
 ## Workflow diagram
 

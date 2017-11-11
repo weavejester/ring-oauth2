@@ -5,6 +5,7 @@
             [clojure.test :refer :all]
             [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
             [ring.mock.request :as mock]
+            [ring.middleware.params :refer [wrap-params]]
             [ring.util.codec :as codec]))
 
 (def test-profile
@@ -90,3 +91,40 @@
     (is (= {:status 200, :headers {}, :body tokens}
            (test-handler (-> (mock/request :get "/")
                              (assoc :session {::oauth2/access-tokens tokens})))))))
+
+(deftest test-true-basic-auth-param
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token"
+      (fn [req]
+          (let [auth (get-in req [:headers "authorization"])]
+              (is (and (not (str/blank? auth))
+                       (.startsWith auth "Basic")))
+            token-response))}
+
+    (testing "valid state"
+      (let [profile (assoc test-profile :basic-auth? true)
+            handler (wrap-oauth2 token-handler {:test profile})
+            request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"code" "abcabc"
+                                               "state" "xyzxyz"}))
+            response (handler request)]))))
+
+(defn contains-many? [m & ks]
+  (every? #(contains? m %) ks))
+
+(deftest test-false-basic-auth-param
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token"
+     (wrap-params (fn [req]
+                     (let [params (get-in req [:params])]
+                        (is (contains-many? params "client_id" "client_secret"))
+                       token-response)))}
+
+    (testing "valid state"
+      (let [profile (assoc test-profile :basic-auth? false)
+            handler (wrap-oauth2 token-handler {:test profile})
+            request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
+            response (handler request)]))))
