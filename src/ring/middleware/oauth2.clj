@@ -55,8 +55,8 @@
 
 (defn- add-form-credentials [opts id secret]
   (assoc opts :form-params (-> (:form-params opts)
-                               (merge {:client-id     id
-                                       :client-secret secret}))))
+                               (merge {:client_id     id
+                                       :client_secret secret}))))
 
 (defn- get-access-token
   [{:keys [access-token-uri client-id client-secret basic-auth?]

@@ -127,7 +127,7 @@
     {"https://example.com/oauth2/access-token"
      (wrap-params (fn [req]
                      (let [params (get-in req [:params])]
-                        (is (contains-many? params "client-id" "client-secret"))
+                        (is (contains-many? params "client_id" "client_secret"))
                        token-response)))}
 
     (testing "valid state"
