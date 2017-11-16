@@ -83,7 +83,8 @@ The launch URI kicks off the authorization process. Your log-in link
 should point to this address, and it should be unique per profile.
 
 The redirect URI provides the internal callback. It can be any
-relative URI as long as it is unique.
+relative URI as long as it is unique. It can also be an absolute URI like
+`https://loadbalanced-url.com/oauth2/github/callback`
 
 The landing URI is where the middleware redirects the user when the
 authentication process is complete. This could just be back to the
