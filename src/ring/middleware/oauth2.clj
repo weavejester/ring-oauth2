@@ -17,7 +17,7 @@
   (str/join " " (map name (:scopes profile))))
 
 (defn- authorize-uri [profile request state]
-  (str (:authorize-uri profile) 
+  (str (:authorize-uri profile)
        (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
        (codec/form-encode {:response_type "code"
                            :client_id     (:client-id profile)
@@ -87,10 +87,13 @@
     (assoc request :oauth2/access-tokens tokens)
     request))
 
+(defn- parse-redirect-url [{:keys [redirect-uri]}]
+  (.getPath (java.net.URI. redirect-uri)))
+
 (defn wrap-oauth2 [handler profiles]
   (let [profiles  (for [[k v] profiles] (assoc v :id k))
         launches  (into {} (map (juxt :launch-uri identity)) profiles)
-        redirects (into {} (map (juxt :redirect-uri identity)) profiles)]
+        redirects (into {} (map (juxt parse-redirect-url identity)) profiles)]
     (fn [{:keys [uri] :as request}]
       (if-let [profile (launches uri)]
         ((make-launch-handler profile) request)

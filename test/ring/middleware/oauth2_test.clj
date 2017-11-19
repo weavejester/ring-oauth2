@@ -41,8 +41,8 @@
            (:session response)))))
 
 (deftest test-location-uri-with-query
-  (let [profile  (assoc test-profile 
-                        :authorize-uri 
+  (let [profile  (assoc test-profile
+                        :authorize-uri
                         "https://example.com/oauth2/authorize?business_partner_id=XXXX")
         handler   (wrap-oauth2 token-handler {:test profile})
         response  (handler (mock/request :get "/oauth2/test"))
@@ -93,7 +93,23 @@
                          (assoc :query-params {"code" "abcabc", "state" "xyzxya"}))
             response (handler request)]
         (is (= {:status 400, :headers {}, :body "Error!"}
-               response))))))
+               response))))
+
+    (testing "absolute redirect uri"
+      (let [profile  (assoc test-profile
+                            :redirect-uri
+                            "https://example.com/oauth2/test/callback?query")
+            handler  (wrap-oauth2 token-handler {:test profile})
+            request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
+            response (handler request)]
+        (is (= 302 (:status response)))
+        (is (= "/" (get-in response [:headers "Location"])))
+        (is (map? (-> response :session ::oauth2/access-tokens)))
+        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
+        (is (approx-eq (-> 3600 time/seconds time/from-now)
+                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
 
 (deftest test-access-tokens-key
   (let [tokens {:test {:token "defdef", :expires 3600}}]
