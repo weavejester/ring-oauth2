@@ -1,4 +1,4 @@
-(defproject ring-oauth2 "0.1.3"
+(defproject ring-oauth2 "0.1.4"
   :description "OAuth 2.0 client middleware for Ring"
   :url "https://github.com/weavejester/ring-oauth2"
   :license {:name "The MIT License"
