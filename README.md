@@ -25,7 +25,7 @@ to authorize against a third-party service.
 Here's an example that provides authentication with GitHub:
 
 ```clojure
-(require '[ring.middleware.oauth2 :refer [wrap-oauth2])
+(require '[ring.middleware.oauth2 :refer [wrap-oauth2]])
 
 (def handler
   (wrap-oauth2
