@@ -132,6 +132,6 @@ of how all the different URIs interact.
 
 ## License
 
-Copyright © 2017 James Reeves
+Copyright © 2018 James Reeves
 
 Released under the MIT License.
