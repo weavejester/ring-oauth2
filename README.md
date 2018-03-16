@@ -18,9 +18,10 @@ To install, add the following to your project `:dependencies`:
 ## Usage
 
 The middleware function to use is `ring.middleware.oauth2/wrap-oauth2`.
-This takes a Ring handler, and a map of profiles as arguments. Each
-profile has a key to identify it, and a map of options that define how
-to authorize against a third-party service.
+This takes a Ring handler, and a map of profiles as arguments and an
+optional map of options. Each profile has a key to identify it, and
+a map of properties that define how to authorize against a third-party
+service.
 
 Here's an example that provides authentication with GitHub:
 
@@ -121,6 +122,18 @@ The handler associated with the landing route can check for this token
 and complete authetication of the user.
 
 [the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
+
+## Options
+
+Using the optional options paramter, you can configure the behaviour
+of wrap-oauth2.
+
+Using the `:strategy` option, you are able to configure a `state`
+management strategy. The `state` is a CSRF-protection mechanism. The
+default strategy relies on a server-side session to store the token
+used for `state` in order to compare `state` received to the 
+session-token. To use another strategy, implement the
+`ring.middleware.oauth2.strategy/Strategy`-protocol.
 
 ## Workflow diagram
 
