@@ -90,7 +90,11 @@
 (defn- parse-redirect-url [{:keys [redirect-uri]}]
   (.getPath (java.net.URI. redirect-uri)))
 
+(defn- valid-profile? [{:keys [client-id client-secret] :as profile}]
+  (and (some? client-id) (some? client-secret)))
+
 (defn wrap-oauth2 [handler profiles]
+  {:pre [(every? valid-profile? (vals profiles))]}
   (let [profiles  (for [[k v] profiles] (assoc v :id k))
         launches  (into {} (map (juxt :launch-uri identity)) profiles)
         redirects (into {} (map (juxt parse-redirect-url identity)) profiles)]
