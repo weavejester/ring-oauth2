@@ -40,6 +40,13 @@
     (is (= {::oauth2/state (params "state")}
            (:session response)))))
 
+(deftest test-missing-fields
+  (let [profile (assoc test-profile :client-id nil)]
+    (is (thrown? AssertionError (wrap-oauth2 token-handler {:test profile}))))
+
+  (let [profile (assoc test-profile :client-secret nil)]
+    (is (thrown? AssertionError (wrap-oauth2 token-handler {:test profile})))))
+
 (deftest test-location-uri-with-query
   (let [profile  (assoc test-profile
                         :authorize-uri
