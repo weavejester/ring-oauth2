@@ -130,6 +130,12 @@ of how all the different URIs interact.
 
 ![OAuth2 Workflow](https://github.com/weavejester/ring-oauth2/raw/master/docs/workflow.png)
 
+## Contributing
+
+Please see [CONTRIBUTING.md][1].
+
+[1]: https://github.com/weavejester/ring-oauth2/blob/master/CONTRIBUTING.md
+
 ## License
 
 Copyright © 2018 James Reeves
