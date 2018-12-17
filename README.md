@@ -102,6 +102,10 @@ in order to make the callback request handling work correctly, eg:
 (wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
 ```
 
+Also, you must make sure that `ring.middleware.params/wrap-params` is
+enabled and runs before this middleware, as this library depends on the
+`:query-params` key to be present in the request.
+
 Once the middleware is set up, navigating to the `:launch-uri` will
 kick off the authorization process. If it succeeds, then the user will
 be directed to the `:landing-uri`. Once the user is authenticated, a
