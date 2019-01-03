@@ -38,10 +38,18 @@
   (= (get-in request [:session ::state])
      (get-in request [:query-params "state"])))
 
+(defn- coerce-to-int [n]
+  (if (string? n)
+    (Integer/parseInt n)
+    n))
+
 (defn- format-access-token
   [{{:keys [access_token expires_in refresh_token id_token]} :body :as r}]
   (-> {:token access_token}
-      (cond-> expires_in (assoc :expires (-> expires_in time/seconds time/from-now))
+      (cond-> expires_in (assoc :expires (-> expires_in
+                                             coerce-to-int
+                                             time/seconds
+                                             time/from-now))
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
