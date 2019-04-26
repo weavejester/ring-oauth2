@@ -44,8 +44,9 @@
     n))
 
 (defn- format-access-token
-  [{{:keys [access_token expires_in refresh_token id_token]} :body :as r}]
-  (-> {:token access_token}
+  [{{:keys [access_token expires_in refresh_token id_token] :as body} :body}]
+  (-> {:token access_token
+       :extra-data (dissoc body :access_token :expires_in :refresh_token :id_token)}
       (cond-> expires_in (assoc :expires (-> expires_in
                                              coerce-to-int
                                              time/seconds
