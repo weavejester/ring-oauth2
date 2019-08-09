@@ -1,6 +1,7 @@
 (ns ring.middleware.oauth2
   (:require [clj-http.client :as http]
             [clj-time.core :as time]
+            [clj-time.coerce :as time-coerce]
             [clojure.string :as str]
             [crypto.random :as random]
             [ring.util.codec :as codec]
@@ -49,7 +50,8 @@
       (cond-> expires_in (assoc :expires (-> expires_in
                                              coerce-to-int
                                              time/seconds
-                                             time/from-now))
+                                             time/from-now
+                                             time-coerce/to-date))
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
@@ -92,7 +94,10 @@
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
-    (assoc request :oauth2/access-tokens tokens)
+    (assoc request :oauth2/access-tokens (->> tokens
+                                              (map (fn [[id t]]
+                                                     [id (update t :expires time-coerce/from-date)]))
+                                              (into {})))
     request))
 
 (defn- parse-redirect-url [{:keys [redirect-uri]}]
