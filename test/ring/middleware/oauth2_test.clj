@@ -1,5 +1,6 @@
 (ns ring.middleware.oauth2-test
   (:require [clj-http.fake :as fake]
+            [clj-time.coerce :as time-coerce]
             [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.test :refer :all]
@@ -81,7 +82,7 @@
         (is (map? (-> response :session ::oauth2/access-tokens)))
         (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))
+                       (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))
         (is (= {:foo "bar"} (-> response :session ::oauth2/access-tokens :test :extra-data)))))
 
     (testing "invalid state"
@@ -136,13 +137,15 @@
         (is (map? (-> response :session ::oauth2/access-tokens)))
         (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
+                       (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))))))
 
 (deftest test-access-tokens-key
-  (let [tokens {:test {:token "defdef", :expires 3600}}]
-    (is (= {:status 200, :headers {}, :body tokens}
+  (let [expires (-> 3600 time/seconds time/from-now)
+        session-tokens {:test {:token "defdef", :expires (time-coerce/to-date expires)}}
+        output-tokens {:test {:token "defdef", :expires expires}}]
+    (is (= {:status 200, :headers {}, :body output-tokens}
            (test-handler (-> (mock/request :get "/")
-                             (assoc :session {::oauth2/access-tokens tokens})))))))
+                             (assoc :session {::oauth2/access-tokens session-tokens})))))))
 
 (deftest test-true-basic-auth-param
   (fake/with-fake-routes
@@ -181,7 +184,6 @@
                          (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
             response (handler request)]))))
 
-
 (def openid-response
   {:status  200
    :headers {"Content-Type" "application/json"}
@@ -196,8 +198,7 @@
       (let [request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
-            response (test-handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            response (test-handler request)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
@@ -207,7 +208,7 @@
         (is (= "abc.def.ghi" (-> response :session ::oauth2/access-tokens
                                                    :test :id-token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
+                       (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))))))
 
 (def openid-response-with-string-expires
   {:status  200
@@ -224,12 +225,11 @@
       (let [request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc" "state" "xyzxyz"}))
-            response (test-handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            response (test-handler request)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
+                       (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))))))
 
 (defn redirect-handler [{:keys [oauth2/access-tokens]}]
   {:status 200, :headers {}, :body "redirect-handler-response-body"})
