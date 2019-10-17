@@ -4,9 +4,6 @@ services:
   oauth2:
     build: .
     volumes:
-      - ".:/code"
+      - ".:/oauth2/"
       - "~/.aws:/root/.aws"
-      - "m2:/root/.m2"
-    stdin_open: true
-volumes:
-  m2:
+      - "./tmp/m2:/root/.m2"
