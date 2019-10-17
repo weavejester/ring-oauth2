@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+use_sudo = false
+open_nrepl_port = ARGV[0] == 'lein' && ARGV[1] == 'repl'
+
+cmd = use_sudo ? ['sudo'] : []
+cmd += %w[docker-compose run]
+cmd += ['-p' '4005:4005'] if open_nrepl_port
+cmd += ['oauth2']
+cmd += ARGV
+
+exec(*cmd)

@@ -1,4 +1,4 @@
-(defproject ring-oauth2 "0.1.4"
+(defproject billfront-ring-oauth2 "0.1.0"
   :description "OAuth 2.0 client middleware for Ring"
   :url "https://github.com/weavejester/ring-oauth2"
   :license {:name "The MIT License"
@@ -8,6 +8,8 @@
                  [clj-http "3.7.0"]
                  [clj-time "0.14.0"]
                  [ring/ring-core "1.6.3"]]
+  :plugins [[s3-wagon-private "1.3.1"]]
+  :repositories [["private" {:url  "s3p://billfront-meta/clj-releases/" :no-auth true :sign-releases false}]]
   :profiles
   {:dev {:dependencies [[clj-http-fake "1.0.3"]
                         [ring/ring-mock "0.3.1"]]}})
