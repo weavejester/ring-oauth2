@@ -29,8 +29,8 @@
   (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
 
 (defn- make-launch-handler [profile]
-  (fn [{:keys [session] :or {session {}} :as request}]
-    (let [state (random-state)]
+  (fn [{:keys [session state] :or {session {}} :as request}]
+    (let [state (or state (random-state))]
       (-> (resp/redirect (authorize-uri profile request state))
           (assoc :session (assoc session ::state state))))))
 
@@ -86,13 +86,12 @@
         (let [access-token (get-access-token profile request)]
           (-> (resp/redirect landing-uri)
               (assoc :session (-> session
-                                  (assoc-in [::access-tokens id] access-token)
-                                  (dissoc ::state)))))
+                                  (assoc-in [::access-tokens id] access-token)))))
         (error-handler request)))))
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
-    (assoc request :oauth2/access-tokens tokens)
+    (assoc request :oauth2/access-tokens tokens :oauth2/state (-> request :session ::state))
     request))
 
 (defn- parse-redirect-url [{:keys [redirect-uri]}]
