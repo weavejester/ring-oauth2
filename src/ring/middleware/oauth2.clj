@@ -83,10 +83,12 @@
   (let [error-handler (:state-mismatch-handler profile state-mismatch-handler)]
     (fn [{:keys [session] :or {session {}} :as request}]
       (if (state-matches? request)
-        (let [access-token (get-access-token profile request)]
+        (let [realmId (get-in request [:params :realmId])
+              access-token (get-access-token profile request)]
           (-> (resp/redirect landing-uri)
               (assoc :session (-> session
-                                  (assoc-in [::access-tokens id] access-token)))))
+                                  (assoc-in [::access-tokens id] access-token)
+                                  (assoc-in [::access-tokens id :realmId] realmId)))))
         (error-handler request)))))
 
 (defn- assoc-access-tokens [request]
