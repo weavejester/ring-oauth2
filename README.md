@@ -122,7 +122,7 @@ profile, the way you'd access the token would be as follows:
 ```
 
 The handler associated with the landing route can check for this token
-and complete authetication of the user.
+and complete authentication of the user.
 
 [the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
