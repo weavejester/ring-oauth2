@@ -99,7 +99,7 @@ If set to true, it includes the client-id and secret as a header
 Please note, you should enable cookies to be sent with cross-site requests,
 in order to make the callback request handling work correctly, eg:
 ```clojure
-(wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
+(wrap-defaults handler (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
 ```
 
 Also, you must make sure that `ring.middleware.params/wrap-params` is
