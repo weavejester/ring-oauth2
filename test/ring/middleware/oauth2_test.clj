@@ -91,13 +91,32 @@
         (is (= {:status 400, :headers {}, :body "State mismatch"}
                response))))
 
-    (testing "custom error"
+    (testing "custom state mismatched error"
       (let [error    {:status 400, :headers {}, :body "Error!"}
             profile  (assoc test-profile :state-mismatch-handler (constantly error))
             handler  (wrap-oauth2 token-handler {:test profile})
             request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxya"}))
+            response (handler request)]
+        (is (= {:status 400, :headers {}, :body "Error!"}
+               response))))
+
+    (testing "no authorization code"
+      (let [request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"state" "xyzxyz"}))
+            response (test-handler request)]
+        (is (= {:status 400, :headers {}, :body "No authorization code"}
+               response))))
+
+    (testing "custom no authorization code error"
+      (let [error    {:status 400, :headers {}, :body "Error!"}
+            profile  (assoc test-profile :no-auth-code-handler (constantly error))
+            handler  (wrap-oauth2 token-handler {:test profile})
+            request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"state" "xyzxyz"}))
             response (handler request)]
         (is (= {:status 400, :headers {}, :body "Error!"}
                response))))
