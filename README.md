@@ -88,7 +88,10 @@ relative URI as long as it is unique. It can also be an absolute URI like
 
 The landing URI is where the middleware redirects the user when the
 authentication process is complete. This could just be back to the
-index page, or it could be to the user's account page.
+index page, or it could be to the user's account page. Or you can use
+the optional `:redirect-handler` key, which expects a Ring handler
+function. When `:redirect-handler` is configured, `:landing-uri` will
+be ignored.
 
 * `:basic-auth?`
 

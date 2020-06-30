@@ -229,3 +229,17 @@
         (is (= "/" (get-in response [:headers "Location"])))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens :test :expires)))))))
+
+(defn redirect-handler [{:keys [oauth2/access-tokens]}]
+  {:status 200, :headers {}, :body "redirect-handler-response-body"})
+
+(deftest test-redirect-handler
+  (let [profile  (assoc test-profile
+                        :redirect-handler redirect-handler)
+        handler  (wrap-oauth2 token-handler {:test profile})
+        request  (-> (mock/request :get "/oauth2/test/callback")
+                     (assoc :session {::oauth2/state "xyzxyz"})
+                     (assoc :query-params {"code" "abcabc" "state" "xyzxyz"}))
+        response (handler request)
+        body     (:body response)]
+    (is (= "redirect-handler-response-body" body))))
