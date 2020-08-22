@@ -59,7 +59,7 @@
 (def token-response
   {:status  200
    :headers {"Content-Type" "application/json"}
-   :body    "{\"access_token\":\"defdef\",\"expires_in\":3600}"})
+   :body    "{\"access_token\":\"defdef\",\"expires_in\":3600,\"foo\":\"bar\"}"})
 
 (defn approx-eq [a b]
   (time/within?
@@ -81,7 +81,8 @@
         (is (map? (-> response :session ::oauth2/access-tokens)))
         (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))
+                       (-> response :session ::oauth2/access-tokens :test :expires)))
+        (is (= {:foo "bar"} (-> response :session ::oauth2/access-tokens :test :extra-data)))))
 
     (testing "invalid state"
       (let [request  (-> (mock/request :get "/oauth2/test/callback")
