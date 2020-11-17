@@ -16,14 +16,18 @@
 (defn- scopes [profile]
   (str/join " " (map name (:scopes profile))))
 
+(defn- random-nonce []
+  (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
+
 (defn- authorize-uri [profile request state]
   (str (:authorize-uri profile)
        (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
-       (codec/form-encode {:response_type "code"
-                           :client_id     (:client-id profile)
-                           :redirect_uri  (redirect-uri profile request)
-                           :scope         (scopes profile)
-                           :state         state})))
+       (let [request-params {:response_type "code"
+                             :client_id     (:client-id profile)
+                             :redirect_uri  (redirect-uri profile request)
+                             :scope         (scopes profile)
+                             :state         state}]
+         (codec/form-encode (if (:nonce profile) (assoc request-params :nonce (random-nonce)) request-params)))))
 
 (defn- random-state []
   (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
