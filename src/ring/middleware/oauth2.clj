@@ -3,6 +3,7 @@
             [clj-time.core :as time]
             [clojure.string :as str]
             [crypto.random :as random]
+            [ring.middleware.params :refer [wrap-params]]
             [ring.util.codec :as codec]
             [ring.util.request :as req]
             [ring.util.response :as resp]))
@@ -19,20 +20,23 @@
 (defn- authorize-uri [profile request state]
   (str (:authorize-uri profile)
        (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
-       (codec/form-encode {:response_type "code"
-                           :client_id     (:client-id profile)
-                           :redirect_uri  (redirect-uri profile request)
-                           :scope         (scopes profile)
-                           :state         state})))
+       (codec/form-encode 
+         (merge (:query-params request)
+                {:response_type "code"
+                 :client_id     (:client-id profile)
+                 :redirect_uri  (redirect-uri profile request)
+                 :scope         (scopes profile)
+                 :state         state }))))
 
 (defn- random-state []
   (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
 
 (defn- make-launch-handler [profile]
-  (fn [{:keys [session] :or {session {}} :as request}]
-    (let [state (random-state)]
-      (-> (resp/redirect (authorize-uri profile request state))
-          (assoc :session (assoc session ::state state))))))
+  (wrap-params
+    (fn [{:keys [session] :or {session {}} :as request}]
+      (let [state (random-state)]
+        (-> (resp/redirect (authorize-uri profile request state))
+            (assoc :session (assoc session ::state state)))))))
 
 (defn- state-matches? [request]
   (= (get-in request [:session ::state])
