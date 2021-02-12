@@ -60,7 +60,7 @@
 (def token-response
   {:status  200
    :headers {"Content-Type" "application/json"}
-   :body    "{\"access_token\":\"defdef\",\"expires_in\":3600}"})
+   :body    "{\"access_token\":\"defdef\",\"expires_in\":3600,\"foo\":\"bar\"}"})
 
 (defn approx-eq [a b]
   (time/within?
@@ -82,7 +82,8 @@
         (is (map? (-> response :session ::oauth2/access-tokens)))
         (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))))
+                       (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))
+        (is (= {:foo "bar"} (-> response :session ::oauth2/access-tokens :test :extra-data)))))
 
     (testing "invalid state"
       (let [request  (-> (mock/request :get "/oauth2/test/callback")
@@ -92,13 +93,32 @@
         (is (= {:status 400, :headers {}, :body "State mismatch"}
                response))))
 
-    (testing "custom error"
+    (testing "custom state mismatched error"
       (let [error    {:status 400, :headers {}, :body "Error!"}
             profile  (assoc test-profile :state-mismatch-handler (constantly error))
             handler  (wrap-oauth2 token-handler {:test profile})
             request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxya"}))
+            response (handler request)]
+        (is (= {:status 400, :headers {}, :body "Error!"}
+               response))))
+
+    (testing "no authorization code"
+      (let [request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"state" "xyzxyz"}))
+            response (test-handler request)]
+        (is (= {:status 400, :headers {}, :body "No authorization code"}
+               response))))
+
+    (testing "custom no authorization code error"
+      (let [error    {:status 400, :headers {}, :body "Error!"}
+            profile  (assoc test-profile :no-auth-code-handler (constantly error))
+            handler  (wrap-oauth2 token-handler {:test profile})
+            request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"state" "xyzxyz"}))
             response (handler request)]
         (is (= {:status 400, :headers {}, :body "Error!"}
                response))))
@@ -210,3 +230,17 @@
         (is (= "/" (get-in response [:headers "Location"])))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens :test :expires time-coerce/from-date)))))))
+
+(defn redirect-handler [{:keys [oauth2/access-tokens]}]
+  {:status 200, :headers {}, :body "redirect-handler-response-body"})
+
+(deftest test-redirect-handler
+  (let [profile  (assoc test-profile
+                        :redirect-handler redirect-handler)
+        handler  (wrap-oauth2 token-handler {:test profile})
+        request  (-> (mock/request :get "/oauth2/test/callback")
+                     (assoc :session {::oauth2/state "xyzxyz"})
+                     (assoc :query-params {"code" "abcabc" "state" "xyzxyz"}))
+        response (handler request)
+        body     (:body response)]
+    (is (= "redirect-handler-response-body" body))))

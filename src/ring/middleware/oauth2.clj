@@ -45,8 +45,9 @@
     n))
 
 (defn- format-access-token
-  [{{:keys [access_token expires_in refresh_token id_token]} :body :as r}]
-  (-> {:token access_token}
+  [{{:keys [access_token expires_in refresh_token id_token] :as body} :body}]
+  (-> {:token access_token
+       :extra-data (dissoc body :access_token :expires_in :refresh_token :id_token)}
       (cond-> expires_in (assoc :expires (-> expires_in
                                              coerce-to-int
                                              time/seconds
@@ -55,9 +56,12 @@
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
+(defn- get-authorization-code [request]
+  (get-in request [:query-params "code"]))
+
 (defn- request-params [profile request]
   {:grant_type    "authorization_code"
-   :code          (get-in request [:query-params "code"])
+   :code          (get-authorization-code request)
    :redirect_uri  (redirect-uri profile request)})
 
 (defn- add-header-credentials [opts id secret]
@@ -81,16 +85,28 @@
 (defn state-mismatch-handler [_]
   {:status 400, :headers {}, :body "State mismatch"})
 
+(defn no-auth-code-handler [_]
+  {:status 400, :headers {}, :body "No authorization code"})
+
 (defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
-  (let [error-handler (:state-mismatch-handler profile state-mismatch-handler)]
+  (let [state-mismatch-handler (:state-mismatch-handler
+                                 profile state-mismatch-handler)
+        no-auth-code-handler   (:no-auth-code-handler
+                                 profile no-auth-code-handler)]
     (fn [{:keys [session] :or {session {}} :as request}]
-      (if (state-matches? request)
+      (cond
+        (not (state-matches? request))
+        (state-mismatch-handler request)
+
+        (nil? (get-authorization-code request))
+        (no-auth-code-handler request)
+
+        :else
         (let [access-token (get-access-token profile request)]
           (-> (resp/redirect landing-uri)
               (assoc :session (-> session
                                   (assoc-in [::access-tokens id] access-token)
-                                  (dissoc ::state)))))
-        (error-handler request)))))
+                                  (dissoc ::state)))))))))
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
@@ -115,5 +131,5 @@
       (if-let [profile (launches uri)]
         ((make-launch-handler profile) request)
         (if-let [profile (redirects uri)]
-          ((make-redirect-handler profile) request)
+          ((:redirect-handler profile (make-redirect-handler profile)) request)
           (handler (assoc-access-tokens request)))))))

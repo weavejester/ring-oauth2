@@ -13,7 +13,7 @@ Twitter, Facebook and GitHub.
 
 To install, add the following to your project `:dependencies`:
 
-    [ring-oauth2 "0.1.4"]
+    [ring-oauth2 "0.1.5"]
 
 ## Usage
 
@@ -88,7 +88,10 @@ relative URI as long as it is unique. It can also be an absolute URI like
 
 The landing URI is where the middleware redirects the user when the
 authentication process is complete. This could just be back to the
-index page, or it could be to the user's account page.
+index page, or it could be to the user's account page. Or you can use
+the optional `:redirect-handler` key, which expects a Ring handler
+function. When `:redirect-handler` is configured, `:landing-uri` will
+be ignored.
 
 * `:basic-auth?`
 
@@ -99,7 +102,7 @@ If set to true, it includes the client-id and secret as a header
 Please note, you should enable cookies to be sent with cross-site requests,
 in order to make the callback request handling work correctly, eg:
 ```clojure
-(wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
+(wrap-defaults handler (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
 ```
 
 Also, you must make sure that `ring.middleware.params/wrap-params` is
@@ -122,7 +125,7 @@ profile, the way you'd access the token would be as follows:
 ```
 
 The handler associated with the landing route can check for this token
-and complete authetication of the user.
+and complete authentication of the user.
 
 [the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
