@@ -61,7 +61,7 @@
         handler   (wrap-oauth2 token-handler {:test profile})
         response  (handler (mock/request :post "/oauth2/test?hd=tenant.com"))
         location  (get-in response [:headers "Location"])]
-    (is (.contains ^String location "hd=tenant.com"))))
+    (is (.contains ^String location "?hd=tenant.com&"))))
 
 (def token-response
   {:status  200
