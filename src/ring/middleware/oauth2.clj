@@ -19,7 +19,7 @@
 (defn- authorize-uri [profile request state]
   (str (:authorize-uri profile)
        (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
-       (if (request :query-string) (str (request :query-string) "&")) 
+       (if (:query-string request) (str (:query-string request) "&")) 
        (codec/form-encode {:response_type "code"
                            :client_id     (:client-id profile)
                            :redirect_uri  (redirect-uri profile request)
