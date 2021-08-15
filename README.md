@@ -145,6 +145,6 @@ Please see [CONTRIBUTING.md][1].
 
 ## License
 
-Copyright © 2018 James Reeves
+Copyright © 2021 James Reeves
 
 Released under the MIT License.
