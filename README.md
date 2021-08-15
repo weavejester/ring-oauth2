@@ -13,7 +13,7 @@ Twitter, Facebook and GitHub.
 
 To install, add the following to your project `:dependencies`:
 
-    [ring-oauth2 "0.1.5"]
+    [ring-oauth2 "0.2.0"]
 
 ## Usage
 
