@@ -1,7 +1,7 @@
 (ns ring.middleware.oauth2
   (:require [clj-http.client :as http]
+            [clj-time.coerce :as coerce]
             [clj-time.core :as time]
-            [clj-time.coerce :as time-coerce]
             [clojure.string :as str]
             [crypto.random :as random]
             [ring.util.codec :as codec]
@@ -52,7 +52,7 @@
                                              coerce-to-int
                                              time/seconds
                                              time/from-now
-                                             time-coerce/to-date))
+                                             coerce/to-date))
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
@@ -110,7 +110,7 @@
 
 (defn- coerce-tokens-expires-date [tokens]
   (into {} (for [[id t] tokens]
-             [id (update t :expires time-coerce/from-date)])))
+             [id (update t :expires coerce/from-date)])))
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]

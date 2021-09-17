@@ -1,6 +1,6 @@
 (ns ring.middleware.oauth2-test
   (:require [clj-http.fake :as fake]
-            [clj-time.coerce :as time-coerce]
+            [clj-time.coerce :as coerce]
             [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.test :refer :all]
@@ -80,10 +80,11 @@
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
-        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
+        (is (= "defdef" (-> response :session ::oauth2/access-tokens
+                            :test :token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens
-                                             :test :expires time-coerce/from-date)))
+                           :test :expires coerce/from-date)))
         (is (= {:foo "bar"} (-> response :session ::oauth2/access-tokens :test :extra-data)))))
 
     (testing "invalid state"
@@ -136,15 +137,16 @@
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
-        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
+        (is (= "defdef" (-> response :session ::oauth2/access-tokens
+                            :test :token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens
-                                             :test :expires time-coerce/from-date)))))))
+                           :test :expires coerce/from-date)))))))
 
 (deftest test-access-tokens-key
   (let [expires (-> 3600 time/seconds time/from-now)
         session-tokens {:test {:token "defdef"
-                               :expires (time-coerce/to-date expires)}}
+                               :expires (coerce/to-date expires)}}
         output-tokens  {:test {:token "defdef"
                                :expires expires}}]
     (is (= {:status 200, :headers {}, :body output-tokens}
@@ -207,14 +209,15 @@
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
-        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
+        (is (= "defdef" (-> response :session ::oauth2/access-tokens
+                            :test :token)))
         (is (= "ghighi" (-> response :session ::oauth2/access-tokens
-                                              :test :refresh-token)))
+                            :test :refresh-token)))
         (is (= "abc.def.ghi" (-> response :session ::oauth2/access-tokens
-                                                   :test :id-token)))
+                                 :test :id-token)))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens
-                                             :test :expires time-coerce/from-date)))))))
+                           :test :expires coerce/from-date)))))))
 
 (def openid-response-with-string-expires
   {:status  200
@@ -236,7 +239,7 @@
         (is (= "/" (get-in response [:headers "Location"])))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens
-                                             :test :expires time-coerce/from-date)))))))
+                           :test :expires coerce/from-date)))))))
 
 (defn redirect-handler [{:keys [oauth2/access-tokens]}]
   {:status 200, :headers {}, :body "redirect-handler-response-body"})
