@@ -108,13 +108,13 @@
                                   (assoc-in [::access-tokens id] access-token)
                                   (dissoc ::state)))))))))
 
+(defn- coerce-tokens-expires-date [tokens]
+  (into {} (for [[id t] tokens]
+             [id (update t :expires time-coerce/from-date)])))
+
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
-    (assoc request :oauth2/access-tokens
-                   (->> tokens
-                        (map (fn [[id t]]
-                               [id (update t :expires time-coerce/from-date)]))
-                        (into {})))
+    (assoc request :oauth2/access-tokens (coerce-tokens-expires-date tokens))
     request))
 
 (defn- parse-redirect-url [{:keys [redirect-uri]}]
