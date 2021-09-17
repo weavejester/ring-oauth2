@@ -110,10 +110,11 @@
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
-    (assoc request :oauth2/access-tokens (->> tokens
-                                              (map (fn [[id t]]
-                                                     [id (update t :expires time-coerce/from-date)]))
-                                              (into {})))
+    (assoc request :oauth2/access-tokens
+                   (->> tokens
+                        (map (fn [[id t]]
+                               [id (update t :expires time-coerce/from-date)]))
+                        (into {})))
     request))
 
 (defn- parse-redirect-url [{:keys [redirect-uri]}]
