@@ -13,7 +13,7 @@ Twitter, Facebook and GitHub.
 
 To install, add the following to your project `:dependencies`:
 
-    [ring-oauth2 "0.1.5"]
+    [ring-oauth2 "0.2.0"]
 
 ## Usage
 
@@ -145,6 +145,6 @@ Please see [CONTRIBUTING.md][1].
 
 ## License
 
-Copyright © 2018 James Reeves
+Copyright © 2021 James Reeves
 
 Released under the MIT License.
