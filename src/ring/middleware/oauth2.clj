@@ -2,7 +2,6 @@
   (:require [clj-http.client :as http]
             [clj-time.coerce :as coerce]
             [clj-time.core :as time]
-            [clj-time.coerce :as time-coerce]
             [clojure.string :as str]
             [crypto.random :as random]
             [ring.util.codec :as codec]
