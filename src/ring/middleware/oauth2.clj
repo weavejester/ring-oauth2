@@ -19,7 +19,7 @@
 (defn- authorize-uri [profile request state]
   (let [auth-uri (if (string? (:authorize-uri profile))
                    (:authorize-uri profile)
-                   ((:authorize-uri profile) profile request state))]
+                   ((:authorize-uri profile) profile request))]
     (str auth-uri
          (if (.contains ^String auth-uri "?") "&" "?")
          (codec/form-encode {:response_type "code"
