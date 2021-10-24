@@ -17,13 +17,16 @@
   (str/join " " (map name (:scopes profile))))
 
 (defn- authorize-uri [profile request state]
-  (str (:authorize-uri profile)
-       (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
-       (codec/form-encode {:response_type "code"
-                           :client_id     (:client-id profile)
-                           :redirect_uri  (redirect-uri profile request)
-                           :scope         (scopes profile)
-                           :state         state})))
+  (let [auth-uri (if (string? (:authorize-uri profile))
+                   (:authorize-uri profile)
+                   ((:authorize-uri profile) profile request state))]
+    (str auth-uri
+         (if (.contains ^String auth-uri "?") "&" "?")
+         (codec/form-encode {:response_type "code"
+                             :client_id     (:client-id profile)
+                             :redirect_uri  (redirect-uri profile request)
+                             :scope         (scopes profile)
+                             :state         state}))))
 
 (defn- random-state []
   (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))

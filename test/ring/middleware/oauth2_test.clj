@@ -56,6 +56,16 @@
         location  (get-in response [:headers "Location"])]
     (is (.startsWith ^String location "https://example.com/oauth2/authorize?business_partner_id=XXXX&"))))
 
+(deftest test-authorize-uri-as-a-function
+  (let [profile  (assoc test-profile
+                        :authorize-uri
+                        (fn [profile request state]
+                          "https://mycustom-url.example.com/oauth2/authorize"))
+        handler   (wrap-oauth2 token-handler {:test profile})
+        response  (handler (mock/request :get "/oauth2/test"))
+        location  (get-in response [:headers "Location"])]
+    (is (.startsWith ^String location "https://mycustom-url.example.com/oauth2/authorize"))))
+
 (def token-response
   {:status  200
    :headers {"Content-Type" "application/json"}
