@@ -1,0 +1,10 @@
+{:deps {org.clojure/clojure {:mvn/version "1.11.1"}, 
+        cheshire/cheshire {:mvn/version "5.11.0"}, 
+        clj-http/clj-http {:mvn/version "3.12.3"}, 
+        clj-time/clj-time {:mvn/version "0.15.2"}, 
+        ring/ring-core {:mvn/version "1.9.6"}}
+ :aliases
+ {:dev {:extra-deps
+        {clj-http-fake/clj-http-fake {:mvn/version "1.0.3"},
+         ring/ring-mock {:mvn/version "0.4.0"}}}
+}}
