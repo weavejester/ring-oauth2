@@ -1,6 +1,5 @@
 (ns ring.middleware.oauth2
   (:require [clj-http.client :as http]
-            [clj-time.core :as time]
             [clojure.string :as str]
             [crypto.random :as random]
             [ring.util.codec :as codec]
@@ -43,14 +42,20 @@
     (Integer/parseInt n)
     n))
 
+(defn seconds-from-now-to-date [seconds]
+  (-> (java.util.Date.)
+      .getTime
+      (+ (* seconds 1000))
+      (java.util.Date.))
+  )
+
 (defn- format-access-token
   [{{:keys [access_token expires_in refresh_token id_token] :as body} :body}]
   (-> {:token access_token
        :extra-data (dissoc body :access_token :expires_in :refresh_token :id_token)}
       (cond-> expires_in (assoc :expires (-> expires_in
                                              coerce-to-int
-                                             time/seconds
-                                             time/from-now))
+                                             seconds-from-now-to-date))
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
