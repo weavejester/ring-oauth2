@@ -129,6 +129,14 @@ and complete authentication of the user.
 
 [the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
+### PKCE
+
+Some oauth providers require an additional step called *Proof Key for 
+Code Exchange* ([PKCE][]).  Ring-OAuth2 will include a proof key in the 
+workflow when `:pkce? true`is included in the profile map.
+
+[pkce]: https://www.oauth.com/oauth2-servers/pkce/authorization-request/
+
 ## Workflow diagram
 
 The following image is a workflow diagram that describes the OAuth2

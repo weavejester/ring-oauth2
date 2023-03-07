@@ -3,6 +3,7 @@
             [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.test :refer :all]
+            [cheshire.core :as cheshire]
             [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
             [ring.mock.request :as mock]
             [ring.middleware.params :refer [wrap-params]]
@@ -18,11 +19,16 @@
    :client-id        "abcdef"
    :client-secret    "01234567890abcdef"})
 
+(def test-profile-pkce
+  (assoc test-profile :pkce? true))
+
 (defn token-handler [{:keys [oauth2/access-tokens]}]
   {:status 200, :headers {}, :body access-tokens})
 
 (def test-handler
   (wrap-oauth2 token-handler {:test test-profile}))
+(def test-handler-pkce
+  (wrap-oauth2 token-handler {:test test-profile-pkce}))
 
 (deftest test-launch-uri
   (let [response  (test-handler (mock/request :get "/oauth2/test"))
@@ -39,6 +45,14 @@
     (is (re-matches #"[A-Za-z0-9_-]{12}" (params "state")))
     (is (= {::oauth2/state (params "state")}
            (:session response)))))
+
+(deftest test-launch-uri-pkce
+  (let [response  (test-handler-pkce (mock/request :get "/oauth2/test"))
+        location  (get-in response [:headers "Location"])
+        [_ query] (str/split location #"\?" 2)
+        params    (codec/form-decode query)]
+    (is (contains? params "code_challenge"))
+    (is (= "S256" (get params "code_challenge_method")))))
 
 (deftest test-missing-fields
   (let [profile (assoc test-profile :client-id nil)]
@@ -230,6 +244,35 @@
         (is (= "/" (get-in response [:headers "Location"])))
         (is (approx-eq (-> 3600 time/seconds time/from-now)
                        (-> response :session ::oauth2/access-tokens :test :expires)))))))
+
+(defn openid-response-with-code-verifier [req]
+  {:status  200
+   :headers {"Content-Type" "application/json"}
+   :body    (cheshire/generate-string
+              {:access_token "defdef"
+               :expires_in 3600
+               :refresh_token "ghighi"
+               :id_token "abc.def.ghi"
+               :code_verifier (-> req :body slurp codec/form-decode (get "code_verifier"))})})
+
+(deftest test-openid-response-with-code-verifier
+  (fake/with-fake-routes
+   {"https://example.com/oauth2/access-token" openid-response-with-code-verifier}
+
+   (testing "valid state"
+     (let [verifier (oauth2/random-code-verifier)
+           request  (-> (mock/request :get "/oauth2/test/callback")
+                        (assoc :session {::oauth2/state "xyzxyz"
+                                         ::oauth2/code-verifier verifier})
+                        (assoc :query-params {"code" "abcabc" "state" "xyzxyz"}))
+           response (test-handler-pkce request)]
+       (is (-> response
+               :session
+               ::oauth2/access-tokens
+               :test
+               :extra-data
+               :code_verifier
+               (= verifier)))))))
 
 (defn redirect-handler [{:keys [oauth2/access-tokens]}]
   {:status 200, :headers {}, :body "redirect-handler-response-body"})

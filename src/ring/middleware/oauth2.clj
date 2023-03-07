@@ -5,7 +5,10 @@
             [crypto.random :as random]
             [ring.util.codec :as codec]
             [ring.util.request :as req]
-            [ring.util.response :as resp]))
+            [ring.util.response :as resp])
+  (:import java.security.MessageDigest
+           java.nio.charset.StandardCharsets
+           [org.apache.commons.codec.binary Base64]))
 
 (defn- redirect-uri [profile request]
   (-> (req/request-url request)
@@ -16,23 +19,49 @@
 (defn- scopes [profile]
   (str/join " " (map name (:scopes profile))))
 
-(defn- authorize-uri [profile request state]
+(defn- base64 [^bytes bs]
+  (String. (Base64/encodeBase64 bs)))
+
+(defn- str->sha256 [^String s]
+  (-> (MessageDigest/getInstance "SHA-256")
+      (.digest (.getBytes s StandardCharsets/UTF_8))))
+
+(defn- base64url [base64-str]
+  (-> base64-str (str/replace "+" "-") (str/replace "/" "_")))
+
+(defn- verifier->challenge [^String verifier]
+  (-> verifier str->sha256 base64 base64url (str/replace "=" "")))
+
+(defn- authorize-params [profile request state verifier]
+  (-> {:response_type "code"
+       :client_id     (:client-id profile)
+       :redirect_uri  (redirect-uri profile request)
+       :scope         (scopes profile)
+       :state         state}
+      (cond-> (:pkce? profile)
+              (assoc :code_challenge (verifier->challenge verifier)
+                     :code_challenge_method "S256"))))
+
+(defn- authorize-uri [profile request state verifier]
   (str (:authorize-uri profile)
        (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
-       (codec/form-encode {:response_type "code"
-                           :client_id     (:client-id profile)
-                           :redirect_uri  (redirect-uri profile request)
-                           :scope         (scopes profile)
-                           :state         state})))
+       (codec/form-encode (authorize-params profile request state verifier))))
 
 (defn- random-state []
-  (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
+  (base64url (random/base64 9)))
 
-(defn- make-launch-handler [profile]
+(defn- random-code-verifier []
+  (base64url (random/base64 63)))
+
+(defn- make-launch-handler [{:keys [pkce?] :as profile}]
   (fn [{:keys [session] :or {session {}} :as request}]
-    (let [state (random-state)]
-      (-> (resp/redirect (authorize-uri profile request state))
-          (assoc :session (assoc session ::state state))))))
+    (let [state    (random-state)
+          verifier (when pkce? (random-code-verifier))
+          session' (-> session
+                       (assoc ::state state)
+                       (cond-> pkce? (assoc ::code-verifier verifier)))]
+      (-> (resp/redirect (authorize-uri profile request state verifier))
+          (assoc :session session')))))
 
 (defn- state-matches? [request]
   (= (get-in request [:session ::state])
@@ -57,10 +86,14 @@
 (defn- get-authorization-code [request]
   (get-in request [:query-params "code"]))
 
-(defn- request-params [profile request]
-  {:grant_type    "authorization_code"
-   :code          (get-authorization-code request)
-   :redirect_uri  (redirect-uri profile request)})
+(defn- get-code-verifier [request]
+  (get-in request [:session ::code-verifier]))
+
+(defn- request-params [{:keys [pkce?] :as profile} request]
+  (-> {:grant_type    "authorization_code"
+       :code          (get-authorization-code request)
+       :redirect_uri  (redirect-uri profile request)}
+      (cond-> pkce? (assoc :code_verifier (get-code-verifier request)))))
 
 (defn- add-header-credentials [opts id secret]
   (assoc opts :basic-auth [id secret]))
@@ -104,7 +137,7 @@
           (-> (resp/redirect landing-uri)
               (assoc :session (-> session
                                   (assoc-in [::access-tokens id] access-token)
-                                  (dissoc ::state)))))))))
+                                  (dissoc ::state ::code-verifier)))))))))
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
