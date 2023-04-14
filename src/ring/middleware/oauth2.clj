@@ -50,7 +50,7 @@
 (defn- random-state []
   (base64url (random/base64 9)))
 
-(defn- random-code-verifier []
+(defn random-code-verifier []
   (base64url (random/base64 63)))
 
 (defn- make-launch-handler [{:keys [pkce?] :as profile}]
