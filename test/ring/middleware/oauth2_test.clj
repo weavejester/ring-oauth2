@@ -1,12 +1,13 @@
 (ns ring.middleware.oauth2-test
   (:require [clj-http.fake :as fake]
-            [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.test :refer :all]
             [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
             [ring.mock.request :as mock]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.util.codec :as codec]))
+            [ring.util.codec :as codec])
+  (:import [java.time Instant]
+           [java.util Date]))
 
 (def test-profile
   {:authorize-uri    "https://example.com/oauth2/authorize"
@@ -62,9 +63,12 @@
    :body    "{\"access_token\":\"defdef\",\"expires_in\":3600,\"foo\":\"bar\"}"})
 
 (defn approx-eq [a b]
-  (time/within?
-   (time/interval (time/minus a (time/seconds 1)) (time/plus a (time/seconds 1)))
-   b))
+  (let [a-ms (.getTime a)
+        b-ms (.getTime b)]
+    (< (- a-ms 1000) b-ms (+ a-ms 1000))))
+
+(defn seconds-from-now-to-date [secs]
+  (-> (Instant/now) (.plusSeconds secs) (Date/from)))
 
 (deftest test-redirect-uri
   (fake/with-fake-routes
@@ -75,12 +79,12 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
             response (test-handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            expires  (seconds-from-now-to-date 3600)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
         (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
+        (is (approx-eq expires
                        (-> response :session ::oauth2/access-tokens :test :expires)))
         (is (= {:foo "bar"} (-> response :session ::oauth2/access-tokens :test :extra-data)))))
 
@@ -130,12 +134,13 @@
             request  (-> (mock/request :get "/oauth2/test/callback")
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
-            response (handler request)]
+            response (handler request)
+            expires  (seconds-from-now-to-date 3600)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
         (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
+        (is (approx-eq expires
                        (-> response :session ::oauth2/access-tokens :test :expires)))))))
 
 (deftest test-access-tokens-key
@@ -197,7 +202,7 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc", "state" "xyzxyz"}))
             response (test-handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            expires  (seconds-from-now-to-date 3600)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
         (is (map? (-> response :session ::oauth2/access-tokens)))
@@ -206,7 +211,7 @@
                                               :test :refresh-token)))
         (is (= "abc.def.ghi" (-> response :session ::oauth2/access-tokens
                                                    :test :id-token)))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
+        (is (approx-eq expires
                        (-> response :session ::oauth2/access-tokens :test :expires)))))))
 
 (def openid-response-with-string-expires
@@ -225,10 +230,10 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code" "abcabc" "state" "xyzxyz"}))
             response (test-handler request)
-            expires  (-> 3600 time/seconds time/from-now)]
+            expires  (seconds-from-now-to-date 3600)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
+        (is (approx-eq expires
                        (-> response :session ::oauth2/access-tokens :test :expires)))))))
 
 (defn redirect-handler [{:keys [oauth2/access-tokens]}]

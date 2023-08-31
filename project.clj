@@ -6,7 +6,6 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [cheshire "5.10.1"]
                  [clj-http "3.12.3"]
-                 [clj-time "0.15.2"]
                  [ring/ring-core "1.9.4"]]
   :profiles
   {:dev {:dependencies [[clj-http-fake "1.0.3"]

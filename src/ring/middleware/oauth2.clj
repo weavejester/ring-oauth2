@@ -1,11 +1,12 @@
 (ns ring.middleware.oauth2
   (:require [clj-http.client :as http]
-            [clj-time.core :as time]
             [clojure.string :as str]
             [crypto.random :as random]
             [ring.util.codec :as codec]
             [ring.util.request :as req]
-            [ring.util.response :as resp]))
+            [ring.util.response :as resp])
+  (:import [java.time Instant]
+           [java.util Date]))
 
 (defn- redirect-uri [profile request]
   (-> (req/request-url request)
@@ -47,10 +48,9 @@
   [{{:keys [access_token expires_in refresh_token id_token] :as body} :body}]
   (-> {:token access_token
        :extra-data (dissoc body :access_token :expires_in :refresh_token :id_token)}
-      (cond-> expires_in (assoc :expires (-> expires_in
-                                             coerce-to-int
-                                             time/seconds
-                                             time/from-now))
+      (cond-> expires_in (assoc :expires (-> (Instant/now)
+                                             (.plusSeconds (coerce-to-int expires_in))
+                                             (Date/from)))
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
