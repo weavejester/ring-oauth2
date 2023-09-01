@@ -57,6 +57,13 @@
         location  (get-in response [:headers "Location"])]
     (is (.startsWith ^String location "https://example.com/oauth2/authorize?business_partner_id=XXXX&"))))
 
+(deftest test-location-uri-with-dynamic-query
+  (let [profile   test-profile
+        handler   (wrap-oauth2 token-handler {:test profile})
+        response  (handler (mock/request :post "/oauth2/test?hd=tenant.com"))
+        location  (get-in response [:headers "Location"])]
+    (is (.contains ^String location "?hd=tenant.com&"))))
+
 (def token-response
   {:status  200
    :headers {"Content-Type" "application/json"}
