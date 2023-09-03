@@ -18,13 +18,16 @@
   (str/join " " (map name (:scopes profile))))
 
 (defn- authorize-uri [profile request state]
-  (str (:authorize-uri profile)
-       (if (.contains ^String (:authorize-uri profile) "?") "&" "?")
-       (codec/form-encode {:response_type "code"
-                           :client_id     (:client-id profile)
-                           :redirect_uri  (redirect-uri profile request)
-                           :scope         (scopes profile)
-                           :state         state})))
+  (let [auth-uri (if (string? (:authorize-uri profile))
+                   (:authorize-uri profile)
+                   ((:authorize-uri profile) profile request))]
+    (str auth-uri
+         (if (.contains ^String auth-uri "?") "&" "?")
+         (codec/form-encode {:response_type "code"
+                             :client_id     (:client-id profile)
+                             :redirect_uri  (redirect-uri profile request)
+                             :scope         (scopes profile)
+                             :state         state}))))
 
 (defn- random-state []
   (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
@@ -74,11 +77,14 @@
   [{:keys [access-token-uri client-id client-secret basic-auth?]
     :or {basic-auth? false} :as profile} request]
   (format-access-token
-   (http/post access-token-uri
-     (cond-> {:accept :json, :as  :json,
-              :form-params (request-params profile request)}
-       basic-auth? (add-header-credentials client-id client-secret)
-       (not basic-auth?) (add-form-credentials client-id client-secret)))))
+   (http/post
+    (if (string? access-token-uri)
+      access-token-uri
+      (access-token-uri profile request))
+    (cond-> {:accept :json, :as  :json,
+             :form-params (request-params profile request)}
+      basic-auth? (add-header-credentials client-id client-secret)
+      (not basic-auth?) (add-form-credentials client-id client-secret)))))
 
 (defn state-mismatch-handler [_]
   {:status 400, :headers {}, :body "State mismatch"})

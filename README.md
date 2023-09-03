@@ -53,6 +53,18 @@ These are URLs provided by the third-party website. If you look at the
 OAuth documentation for the site you're authenticating against, it
 should tell you which URLs to use.
 
+Note: If you need to construct the URI at runtime, you can also configure a function
+instead of a string for these parameters:
+
+```clojure
+{:authorize-uri (fn [profile request]
+                   ;; return a URI
+                  )
+ :access-token-uri (fn [profile request]
+                   ;; return a URI
+                  )}
+```
+
 Next is the client ID and secret:
 
 * `:client-id`
