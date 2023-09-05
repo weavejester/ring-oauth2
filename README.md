@@ -1,6 +1,4 @@
-# Ring-OAuth2
-
-[![Build Status](https://github.com/weavejester/ring-oauth2/actions/workflows/test.yml/badge.svg)](https://github.com/weavejester/ring-oauth2/actions/workflows/test.yml)
+# Ring-OAuth2 [![Build Status](https://github.com/weavejester/ring-oauth2/actions/workflows/test.yml/badge.svg)](https://github.com/weavejester/ring-oauth2/actions/workflows/test.yml)
 
 [Ring][] middleware that acts as a [OAuth 2.0][] client. This is used
 for authenticating and integrating with third party website, like
@@ -11,7 +9,11 @@ Twitter, Facebook and GitHub.
 
 ## Installation
 
-To install, add the following to your project `:dependencies`:
+To install, add the following to your deps.edn file:
+
+    ring-oauth2/ring-oauth2 {:mvn/version "0.2.0"}
+
+Or to your Leiningen project file:
 
     [ring-oauth2 "0.2.0"]
 
