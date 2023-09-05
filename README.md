@@ -75,7 +75,8 @@ user's email address. Scopes are a vector of either strings or
 keywords, and are specific to the website you're authenticating
 against.
 
-The next URIs are internal to your application:
+The next URIs are internal to your application and may be any URI you
+wish that your server can respond to:
 
 * `:launch-uri`
 * `:redirect-uri`
@@ -135,9 +136,20 @@ and complete authentication of the user.
 
 The following image is a workflow diagram that describes the OAuth2
 authorization process for Ring-OAuth2. It should give you an overview
-of how all the different URIs interact.
+of how all the different URIs interact:
 
-![OAuth2 Workflow](https://github.com/weavejester/ring-oauth2/raw/master/docs/workflow.png)
+```mermaid
+sequenceDiagram
+    Client->>Ring Server: GET :launch-uri
+    Ring Server-->>Client: redirect to :authorize-uri
+    Client->>Auth Server: GET :authorize-uri
+    Auth Server-->>Client: redirect to :redirect-uri
+    Client->>Ring Server: GET :redirect-uri
+    Ring Server->>Auth Server: POST :access-token-uri
+    Auth Server->>Ring Server: returns access token
+    Ring Server-->>Client: redirect to :landing-uri
+    Client->>Ring Server: GET :landing-uri
+```
 
 ## Contributing
 
