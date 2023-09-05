@@ -4,9 +4,9 @@
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.7.0"]
-                 [cheshire "5.10.1"]
+                 [cheshire "5.11.0"]
                  [clj-http "3.12.3"]
-                 [ring/ring-core "1.9.4"]]
+                 [ring/ring-core "1.10.0"]]
   :profiles
-  {:dev {:dependencies [[clj-http-fake "1.0.3"]
+  {:dev {:dependencies [[clj-http-fake "1.0.4"]
                         [ring/ring-mock "0.4.0"]]}})
