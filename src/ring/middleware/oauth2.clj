@@ -44,13 +44,17 @@
     (Integer/parseInt n)
     n))
 
+(defn- seconds-from-now-to-date [secs]
+  (-> (Instant/now) (.plusSeconds secs) (Date/from)))
+
 (defn- format-access-token
   [{{:keys [access_token expires_in refresh_token id_token] :as body} :body}]
   (-> {:token access_token
-       :extra-data (dissoc body :access_token :expires_in :refresh_token :id_token)}
-      (cond-> expires_in (assoc :expires (-> (Instant/now)
-                                             (.plusSeconds (coerce-to-int expires_in))
-                                             (Date/from)))
+       :extra-data (dissoc body
+                           :access_token :expires_in
+                           :refresh_token :id_token)}
+      (cond-> expires_in (assoc :expires (-> (coerce-to-int expires_in)
+                                             (seconds-from-now-to-date)))
               refresh_token (assoc :refresh-token refresh_token)
               id_token (assoc :id-token id_token))))
 
