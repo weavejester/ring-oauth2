@@ -179,7 +179,8 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code"  "abcabc"
                                                "state" "xyzxyz"}))
-            response (handler request)]))))
+            response (handler request)]
+        (is (= 302 (:status response)))))))
 
 (defn- contains-many? [m & ks]
   (every? #(contains? m %) ks))
@@ -199,7 +200,8 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"code"  "abcabc"
                                                "state" "xyzxyz"}))
-            response (handler request)]))))
+            response (handler request)]
+        (is (= 302 (:status response)))))))
 
 (def openid-response
   {:status  200
