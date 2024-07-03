@@ -158,10 +158,15 @@
   {:pre [(every? valid-profile? (vals profiles))]}
   (let [profiles  (for [[k v] profiles] (assoc v :id k))
         launches  (into {} (map (juxt :launch-uri identity)) profiles)
-        redirects (into {} (map (juxt parse-redirect-url identity)) profiles)]
-    (fn [{:keys [uri] :as request}]
-      (if-let [profile (launches uri)]
-        ((make-launch-handler profile) request)
-        (if-let [profile (redirects uri)]
-          ((:redirect-handler profile (make-redirect-handler profile)) request)
-          (handler (assoc-access-tokens request)))))))
+        redirects (into {} (map (juxt parse-redirect-url identity)) profiles)
+        f         (fn [{:keys [uri] :as request}]
+                     (if-let [profile (launches uri)]
+                       ((make-launch-handler profile) request)
+                       (if-let [profile (redirects uri)]
+                         ((:redirect-handler profile 
+                                             (make-redirect-handler profile)) 
+                          request)
+                         (handler (assoc-access-tokens request)))))]
+    (fn
+      ([request]           (f request))
+      ([request respond _] (respond (f request))))))
