@@ -117,11 +117,19 @@
        basic-auth? (add-header-credentials client-id client-secret)
        (not basic-auth?) (add-form-credentials client-id client-secret)))))
 
-(defn state-mismatch-handler [_]
-  {:status 400, :headers {}, :body "State mismatch"})
+(defn- make-error-response-handler-fn [message]
+  (let [response {:status  400
+                  :headers {}
+                  :body    message}]
+    (fn
+      ([_request]                response)
+      ([_request respond _raise] (respond response)))))
 
-(defn no-auth-code-handler [_]
-  {:status 400, :headers {}, :body "No authorization code"})
+(def state-mismatch-handler
+  (make-error-response-handler-fn "State mismatch"))
+
+(def no-auth-code-handler
+  (make-error-response-handler-fn "No authorization code"))
 
 (defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
   (let [state-mismatch-handler (:state-mismatch-handler
