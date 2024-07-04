@@ -132,6 +132,28 @@ and complete authentication of the user.
 
 [the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
+### Custom error handlers
+
+You can override the default error handlers by providing the appropriate
+keys in a profile:
+```clojure
+  (wrap-oauth2
+   routes
+   {:github
+     {...
+      :no-auth-code-handler   my-no-auth-code-handler
+      :state-mismatch-handler my-state-mistmatch-handler}})
+```
+Note that your handlers must offer the correct function arity
+whether Ring and your HTTP server are being run in synchronous (1-arity)
+or asynchronous (3-arity) mode.
+
+### Synchronous and async Ring
+
+This middleware supports both synchronous mode (1-arity Ring handler
+functions) and asynchronous mode (3-arity).
+However, the implementation is currently synchronous by nature.
+
 ### PKCE
 
 Some OAuth providers require an additional step called *Proof Key for

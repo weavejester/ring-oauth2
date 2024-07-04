@@ -125,17 +125,17 @@
       ([_request]                response)
       ([_request respond _raise] (respond response)))))
 
-(def state-mismatch-handler
+(def default-state-mismatch-handler
   (make-error-response-handler-fn "State mismatch"))
 
-(def no-auth-code-handler
+(def default-no-auth-code-handler
   (make-error-response-handler-fn "No authorization code"))
 
 (defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
-  (let [state-mismatch-handler (:state-mismatch-handler
-                                 profile state-mismatch-handler)
-        no-auth-code-handler   (:no-auth-code-handler
-                                 profile no-auth-code-handler)]
+  (let [state-mismatch-handler (get profile :state-mismatch-handler
+                                            default-state-mismatch-handler)
+        no-auth-code-handler   (get profile :no-auth-code-handler
+                                            default-no-auth-code-handler)]
     (fn [{:keys [session] :or {session {}} :as request}]
       (cond
         (not (state-matches? request))
