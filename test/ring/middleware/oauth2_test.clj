@@ -23,8 +23,11 @@
 (def test-profile-pkce
   (assoc test-profile :pkce? true))
 
-(defn- token-handler [{:keys [oauth2/access-tokens]}]
-  {:status 200, :headers {}, :body access-tokens})
+(defn- token-handler
+  ([{:keys [oauth2/access-tokens]}]
+   {:status 200, :headers {}, :body access-tokens})
+  ([request respond _raise]
+   (respond (token-handler request))))
 
 (def test-handler
   (wrap-oauth2 token-handler {:test test-profile}))
@@ -33,20 +36,43 @@
   (wrap-oauth2 token-handler {:test test-profile-pkce}))
 
 (deftest test-launch-uri
-  (let [response  (test-handler (mock/request :get "/oauth2/test"))
-        location  (get-in response [:headers "Location"])
-        [_ query] (str/split location #"\?" 2)
-        params    (codec/form-decode query)]
-    (is (= 302 (:status response)))
-    (is (.startsWith ^String location "https://example.com/oauth2/authorize?"))
-    (is (= {"response_type" "code"
-            "client_id"     "abcdef"
-            "redirect_uri"  "http://localhost/oauth2/test/callback"
-            "scope"         "user project"}
-           (dissoc params "state")))
-    (is (re-matches #"[A-Za-z0-9_-]{12}" (params "state")))
-    (is (= {::oauth2/state (params "state")}
-           (:session response)))))
+  (testing "sync handlers"
+    (let [response  (test-handler (mock/request :get "/oauth2/test"))
+          location  (get-in response [:headers "Location"])
+          [_ query] (str/split location #"\?" 2)
+          params    (codec/form-decode query)]
+      (is (= 302 (:status response)))
+      (is (.startsWith ^String location "https://example.com/oauth2/authorize?"))
+      (is (= {"response_type" "code"
+              "client_id"     "abcdef"
+              "redirect_uri"  "http://localhost/oauth2/test/callback"
+              "scope"         "user project"}
+             (dissoc params "state")))
+      (is (re-matches #"[A-Za-z0-9_-]{12}" (params "state")))
+      (is (= {::oauth2/state (params "state")}
+             (:session response)))))
+
+  (testing "async handlers"
+    (let [respond (promise)
+          raise   (promise)]
+      (test-handler (mock/request :get "/oauth2/test") respond raise)
+      (let [response  (deref respond 100 :empty)
+            error     (deref raise 100 :empty)]
+        (is (not= response :empty))
+        (is (= error :empty))
+        (let [location  (get-in response [:headers "Location"])
+              [_ query] (str/split location #"\?" 2)
+              params    (codec/form-decode query)]
+          (is (= 302 (:status response)))
+          (is (.startsWith ^String location "https://example.com/oauth2/authorize?"))
+          (is (= {"response_type" "code"
+                  "client_id"     "abcdef"
+                  "redirect_uri"  "http://localhost/oauth2/test/callback"
+                  "scope"         "user project"}
+                 (dissoc params "state")))
+          (is (re-matches #"[A-Za-z0-9_-]{12}" (params "state")))
+          (is (= {::oauth2/state (params "state")}
+                 (:session response))))))))
 
 (deftest test-launch-uri-pkce
   (let [response  (test-handler-pkce (mock/request :get "/oauth2/test"))
@@ -248,7 +274,35 @@
                    :session ::oauth2/access-tokens :test :id-token)))
         (is (approx-eq expires
                        (-> response
-                           :session ::oauth2/access-tokens :test :expires)))))))
+                           :session ::oauth2/access-tokens :test :expires)))))
+
+    (testing "async handler"
+      (let [request  (-> (mock/request :get "/oauth2/test/callback")
+                         (assoc :session {::oauth2/state "xyzxyz"})
+                         (assoc :query-params {"code"  "abcabc"
+                                               "state" "xyzxyz"}))
+            respond  (promise)
+            raise    (promise)
+            expires  (seconds-from-now-to-date 3600)]
+        (test-handler request respond raise)
+        (let [response (deref respond 100 :empty)
+              error    (deref raise 100 :empty)]
+          (is (not= response :empty) "timeout getting response")
+          (is (= error :empty))
+          (is (= 302 (:status response)))
+          (is (= "/" (get-in response [:headers "Location"])))
+          (is (map? (-> response :session ::oauth2/access-tokens)))
+          (is (= "defdef"
+                 (-> response :session ::oauth2/access-tokens :test :token)))
+          (is (= "ghighi"
+                 (-> response
+                     :session ::oauth2/access-tokens :test :refresh-token)))
+          (is (= "abc.def.ghi"
+                 (-> response
+                     :session ::oauth2/access-tokens :test :id-token)))
+          (is (approx-eq expires
+                         (-> response
+                             :session ::oauth2/access-tokens :test :expires))))))))
 
 (def openid-response-with-string-expires
   {:status  200
@@ -315,3 +369,20 @@
         response (handler request)
         body     (:body response)]
     (is (= "redirect-handler-response-body" body))))
+
+(deftest test-handler-passthrough
+  (let [tokens  {:test "tttkkkk"}
+        request (-> (mock/request :get "/example")
+                    (assoc :session {::oauth2/access-tokens tokens}))]
+    (testing "sync handler"
+      (is (= {:status 200, :headers {}, :body tokens}
+             (test-handler request))))
+
+    (testing "async handler"
+      (let [respond (promise)
+            raise   (promise)]
+        (test-handler request respond raise)
+        (is (= :empty
+               (deref raise 100 :empty)))
+        (is (= {:status 200, :headers {}, :body tokens}
+               (deref respond 100 :empty)))))))

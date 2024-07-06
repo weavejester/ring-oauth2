@@ -55,14 +55,19 @@
   (base64url (random/base64 63)))
 
 (defn- make-launch-handler [{:keys [pkce?] :as profile}]
-  (fn [{:keys [session] :or {session {}} :as request}]
-    (let [state    (random-state)
-          verifier (when pkce? (random-code-verifier))
-          session' (-> session
-                       (assoc ::state state)
-                       (cond-> pkce? (assoc ::code-verifier verifier)))]
-      (-> (resp/redirect (authorize-uri profile request state verifier))
-          (assoc :session session')))))
+  (fn handler
+    ([{:keys [session] :or {session {}} :as request}]
+     (let [state    (random-state)
+           verifier (when pkce? (random-code-verifier))
+           session' (-> session
+                        (assoc ::state state)
+                        (cond-> pkce? (assoc ::code-verifier verifier)))]
+       (-> (resp/redirect (authorize-uri profile request state verifier))
+           (assoc :session session'))))
+    ([request respond raise]
+     (when-let [response (try (handler request)
+                              (catch Exception e (raise e) false))]
+       (respond response)))))
 
 (defn- state-matches? [request]
   (= (get-in request [:session ::state])
@@ -107,41 +112,77 @@
                                (merge {:client_id     id
                                        :client_secret secret}))))
 
-(defn- get-access-token
+(defn- access-token-http-options
   [{:keys [access-token-uri client-id client-secret basic-auth?]
-    :or {basic-auth? false} :as profile} request]
-  (format-access-token
-   (http/post access-token-uri
-     (cond-> {:accept :json, :as  :json,
-              :form-params (request-params profile request)}
-       basic-auth? (add-header-credentials client-id client-secret)
-       (not basic-auth?) (add-form-credentials client-id client-secret)))))
+    :or   {basic-auth? false} :as profile}
+   request]
+  (let [opts {:method      :post
+              :url         access-token-uri
+              :accept      :json
+              :as          :json
+              :form-params (request-params profile request)}]
+    (if basic-auth?
+      (add-header-credentials opts client-id client-secret)
+      (add-form-credentials   opts client-id client-secret))))
 
-(defn state-mismatch-handler [_]
-  {:status 400, :headers {}, :body "State mismatch"})
+(defn- get-access-token
+  ([profile request]
+   (-> (http/request (access-token-http-options profile request))
+       (format-access-token)))
+  ([profile request respond raise]
+   (http/request (-> (access-token-http-options profile request)
+                     (assoc :async? true))
+                 (comp respond format-access-token)
+                 raise)))
 
-(defn no-auth-code-handler [_]
-  {:status 400, :headers {}, :body "No authorization code"})
+(defn state-mismatch-handler
+  ([_]
+   {:status 400, :headers {}, :body "State mismatch"})
+  ([request respond _]
+   (respond (state-mismatch-handler request))))
 
-(defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
-  (let [state-mismatch-handler (:state-mismatch-handler
-                                 profile state-mismatch-handler)
-        no-auth-code-handler   (:no-auth-code-handler
-                                 profile no-auth-code-handler)]
-    (fn [{:keys [session] :or {session {}} :as request}]
-      (cond
-        (not (state-matches? request))
-        (state-mismatch-handler request)
+(defn no-auth-code-handler
+  ([_]
+   {:status 400, :headers {}, :body "No authorization code"})
+  ([request respond _]
+   (respond (no-auth-code-handler request))))
 
-        (nil? (get-authorization-code request))
-        (no-auth-code-handler request)
+(defn- redirect-response [{:keys [id landing-uri]} session access-token]
+  (-> (resp/redirect landing-uri)
+      (assoc :session (-> session
+                          (assoc-in [::access-tokens id] access-token)
+                          (dissoc ::state ::code-verifier)))))
 
-        :else
-        (let [access-token (get-access-token profile request)]
-          (-> (resp/redirect landing-uri)
-              (assoc :session (-> session
-                                  (assoc-in [::access-tokens id] access-token)
-                                  (dissoc ::state ::code-verifier)))))))))
+(defn- make-redirect-handler
+  [{:keys [state-mismatch-handler no-auth-code-handler]
+    :or   {state-mismatch-handler state-mismatch-handler
+           no-auth-code-handler   no-auth-code-handler}
+    :as profile}]
+  (fn
+    ([{:keys [session] :or {session {}} :as request}]
+     (cond
+       (not (state-matches? request))
+       (state-mismatch-handler request)
+
+       (nil? (get-authorization-code request))
+       (no-auth-code-handler request)
+
+       :else
+       (let [access-token (get-access-token profile request)]
+         (redirect-response profile session access-token))))
+    ([{:keys [session] :or {session {}} :as request} respond raise]
+     (cond
+       (not (state-matches? request))
+       (state-mismatch-handler request respond raise)
+
+       (nil? (get-authorization-code request))
+       (no-auth-code-handler request respond raise)
+
+       :else
+       (get-access-token profile request
+                         (fn [token]
+                           (respond (redirect-response profile session token)))
+                         raise)))))
 
 (defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
@@ -151,7 +192,7 @@
 (defn- parse-redirect-url [{:keys [redirect-uri]}]
   (.getPath (java.net.URI. redirect-uri)))
 
-(defn- valid-profile? [{:keys [client-id client-secret] :as profile}]
+(defn- valid-profile? [{:keys [client-id client-secret]}]
   (and (some? client-id) (some? client-secret)))
 
 (defn wrap-oauth2 [handler profiles]
@@ -159,9 +200,17 @@
   (let [profiles  (for [[k v] profiles] (assoc v :id k))
         launches  (into {} (map (juxt :launch-uri identity)) profiles)
         redirects (into {} (map (juxt parse-redirect-url identity)) profiles)]
-    (fn [{:keys [uri] :as request}]
-      (if-let [profile (launches uri)]
-        ((make-launch-handler profile) request)
-        (if-let [profile (redirects uri)]
-          ((:redirect-handler profile (make-redirect-handler profile)) request)
-          (handler (assoc-access-tokens request)))))))
+    (fn
+      ([{:keys [uri] :as request}]
+       (if-let [profile (launches uri)]
+         ((make-launch-handler profile) request)
+         (if-let [profile (redirects uri)]
+           ((:redirect-handler profile (make-redirect-handler profile)) request)
+           (handler (assoc-access-tokens request)))))
+      ([{:keys [uri] :as request} respond raise]
+       (if-let [profile (launches uri)]
+         ((make-launch-handler profile) request respond raise)
+         (if-let [profile (redirects uri)]
+           ((:redirect-handler profile (make-redirect-handler profile))
+            request respond raise)
+           (handler (assoc-access-tokens request) respond raise)))))))
