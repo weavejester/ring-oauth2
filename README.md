@@ -11,11 +11,11 @@ Twitter, Facebook and GitHub.
 
 To install, add the following to your deps.edn file:
 
-    ring-oauth2/ring-oauth2 {:mvn/version "0.2.2"}
+    ring-oauth2/ring-oauth2 {:mvn/version "0.3.0"}
 
 Or to your Leiningen project file:
 
-    [ring-oauth2 "0.2.2"]
+    [ring-oauth2 "0.3.0"]
 
 ## Usage
 
