@@ -137,13 +137,17 @@
 
 (defn state-mismatch-handler
   ([_]
-   {:status 400, :headers {}, :body "State mismatch"})
+   {:status  400
+    :headers {"Content-Type" "text/plain; charset=utf-8"}
+    :body    "OAuth2 error: state mismatch"})
   ([request respond _]
    (respond (state-mismatch-handler request))))
 
 (defn no-auth-code-handler
   ([_]
-   {:status 400, :headers {}, :body "No authorization code"})
+   {:status  400
+    :headers {"Content-Type" "text/plain; charset=utf-8"}
+    :body    "OAuth2 error: no authorization code"})
   ([request respond _]
    (respond (no-auth-code-handler request))))
 

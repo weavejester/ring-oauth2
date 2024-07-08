@@ -141,7 +141,9 @@
                          (assoc :query-params {"code"  "abcabc"
                                                "state" "xyzxya"}))
             response (test-handler request)]
-        (is (= {:status 400, :headers {}, :body "State mismatch"}
+        (is (= {:status  400
+                :headers {"Content-Type" "text/plain; charset=utf-8"}
+                :body    "OAuth2 error: state mismatch"}
                response))))
 
     (testing "custom state mismatched error"
@@ -162,7 +164,9 @@
                          (assoc :session {::oauth2/state "xyzxyz"})
                          (assoc :query-params {"state" "xyzxyz"}))
             response (test-handler request)]
-        (is (= {:status 400, :headers {}, :body "No authorization code"}
+        (is (= {:status  400
+                :headers {"Content-Type" "text/plain; charset=utf-8"}
+                :body    "OAuth2 error: no authorization code"}
                response))))
 
     (testing "custom no authorization code error"
