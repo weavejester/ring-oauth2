@@ -109,8 +109,9 @@
         b-ms (.getTime b)]
     (< (- a-ms 1000) b-ms (+ a-ms 1000))))
 
-(defn- seconds-from-now-to-date [secs]
-  (-> (Instant/now) (.plusSeconds secs) (Date/from)))
+(defn- seconds-from-now-to-date
+  ([now secs] (-> now (.plusSeconds secs) (Date/from)))
+  ([secs] (seconds-from-now-to-date (Instant/now) secs)))
 
 (deftest test-redirect-uri
   (fake/with-fake-routes
@@ -390,3 +391,174 @@
                (deref raise 100 :empty)))
         (is (= {:status 200, :headers {}, :body tokens}
                (deref respond 100 :empty)))))))
+
+(def refresh-token-response
+  {:status 200
+   :headers {"Content-Type" "application/json"}
+   :body "{\"access_token\":\"newtoken\",\"expires_in\":3600,
+           \"refresh_token\":\"newrefresh\",\"foo\":\"bar\"}"})
+
+(deftest test-token-refresh-success
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token"
+     (fn [req]
+       (let [params (codec/form-decode (slurp (:body req)))]
+         (is (= "refresh_token" (get params "grant_type")))
+         (is (= "oldrefresh" (get params "refresh_token")))
+         refresh-token-response))}
+
+    (let [now (Instant/now)
+          old-expires  (seconds-from-now-to-date now -60)
+          new-expires  (seconds-from-now-to-date now 3600)
+          new-token    {:token "newtoken"
+                        :refresh-token "newrefresh"
+                        :extra-data {:foo "bar"}}
+          request      (-> (mock/request :get "/")
+                           (assoc :session
+                                  {::oauth2/access-tokens
+                                   {:test {:token "oldtoken"
+                                           :refresh-token "oldrefresh"
+                                           :expires old-expires}}}))]
+      (testing "sync refresh"
+        (let [response (test-handler request)]
+          (is (= 200 (:status response)))
+          ;; then handler has new token
+          (is (= new-token (dissoc (get-in response [:body :test]) :expires)))
+          (is (approx-eq new-expires (get-in response [:body :test :expires])))
+          ;; and the user's session is updated
+          (is (= new-token
+                 (dissoc (get-in response
+                                 [:session ::oauth2/access-tokens :test])
+                         :expires)))))
+      (testing "async refresh"
+        (let [respond (promise)
+              raise   (promise)]
+          (test-handler request respond raise)
+          (is (= :empty (deref raise 100 :empty)))
+          (let [response (deref respond 100 :empty)]
+            ;; then handler has new token
+            (is (not= response :empty))
+            (is (= new-token (dissoc (get-in response [:body :test]) :expires)))
+            ;; user session is updated
+            (is (= new-token
+                   (dissoc (get-in response [:session ::oauth2/access-tokens
+                                             :test])
+                           :expires)))))))))
+
+(def refresh-token-error-response
+  {:headers {"content-type" "application/json"},
+   :status 400,
+   :body "{\"error\": \"invalid_grant\"}"})
+
+(deftest test-token-refresh-failure
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token"
+     (constantly refresh-token-error-response)}
+
+    ;; setup a session with two grants, where one grant is expired and which
+    ;; will error on refresh
+    (let [profiles      {:test-0 test-profile :test-1 test-profile}
+          handler       (wrap-oauth2 token-handler profiles)
+          good-grant    {:token "good-token"
+                         :refresh-token "refresh-token"
+                         :expires (seconds-from-now-to-date 3600)}
+          expired-grant {:token "expired-token"
+                         :refresh-token "invalid"
+                         :expires (seconds-from-now-to-date -60)}
+          request       (-> (mock/request :get "/")
+                            (assoc :session
+                                   {::oauth2/access-tokens
+                                    {:test-0 expired-grant
+                                     :test-1 good-grant}}))]
+      (testing "sync handler"
+        (let [response (handler request)]
+          (is (= {:test-1 good-grant}
+                 (:body response)))))
+      (testing "async refresh"
+        (let [respond (promise)
+              raise   (promise)]
+          (handler request respond raise)
+          (is (= :empty (deref raise 100 :empty)))
+          (let [response (deref respond 100 :empty)]
+            (is (not= response :empty))
+            (is (= {:test-1 good-grant} (:body response)))))))))
+
+(deftest test-token-refresh-clear-session
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token"
+     (constantly refresh-token-response)}
+
+    (let [clear-response {:status 200 :headers {} :body nil :session nil}
+          session-clear-handler (fn
+                                  ([_request] clear-response)
+                                  ([_request respond _raise]
+                                   (respond clear-response)))
+          handler (wrap-oauth2 session-clear-handler {:test test-profile})
+          now (Instant/now)
+          old-expires (seconds-from-now-to-date now -60)
+          request (-> (mock/request :get "/")
+                      (assoc :session
+                             {::oauth2/access-tokens
+                              {:test {:token "oldtoken"
+                                      :refresh-token "oldrefresh"
+                                      :expires old-expires}}}))]
+
+      (testing "sync handler"
+        (let [response (handler request)]
+          (is (= 200 (:status response)))
+          (is (nil? (:session response)))))
+
+      (testing "async handler"
+        (let [respond (promise)
+              raise (promise)]
+          (handler request respond raise)
+          (let [response (deref respond 100 :empty)
+                error (deref raise 100 :empty)]
+            (is (not= :empty response))
+            (is (= :empty error))
+            (is (= 200 (:status response)))
+            (is (nil? (:session response)))))))))
+
+(deftest test-token-refresh-preserves-session-state
+  (fake/with-fake-routes
+    {"https://example.com/oauth2/access-token"
+     (constantly refresh-token-response)}
+
+    (let [now (Instant/now)
+          old-expires (seconds-from-now-to-date now -60)
+          request (-> (mock/request :get "/")
+                      (assoc :session
+                             {:user-id 123  ; extra session state
+                              ::oauth2/access-tokens
+                              {:test {:token "oldtoken"
+                                      :refresh-token "oldrefresh"
+                                      :expires old-expires}}}))]
+
+      (testing "handler sets new session state during refresh"
+        (let [handler (wrap-oauth2
+                       (fn
+                         ([_] {:status 200 :body "ok"
+                               :session {:user-id 123 :cart-items 5}})
+                         ([_ respond _] (respond {:status 200 :body "ok"
+                                                   :session {:user-id 123
+                                                             :cart-items 5}})))
+                       {:test test-profile})
+              response (handler request)]
+          ;; Handler's session changes preserved
+          (is (= 5 (get-in response [:session :cart-items])))
+          ;; Refreshed token added to handler's session
+          (is (= "newtoken" (get-in response [:session ::oauth2/access-tokens
+                                              :test :token])))))
+
+      (testing "handler doesn't change session, extra state preserved"
+        (let [handler (wrap-oauth2
+                       (fn
+                         ([_] {:status 200 :body "ok"})
+                         ([_ respond _] (respond {:status 200 :body "ok"})))
+                       {:test test-profile})
+              response (handler request)]
+          ;; Original session's extra state preserved
+          (is (= 123 (get-in response [:session :user-id])))
+          ;; Token refreshed
+          (is (= "newtoken" (get-in response [:session ::oauth2/access-tokens
+                                              :test :token]))))))))
